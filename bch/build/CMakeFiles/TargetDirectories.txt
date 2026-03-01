@@ -1,0 +1,7 @@
+/Users/josh/Developer/UNSW/Thesis/bch/build/CMakeFiles/bch.dir
+/Users/josh/Developer/UNSW/Thesis/bch/build/CMakeFiles/demo.dir
+/Users/josh/Developer/UNSW/Thesis/bch/build/CMakeFiles/test_gf.dir
+/Users/josh/Developer/UNSW/Thesis/bch/build/CMakeFiles/test_encode.dir
+/Users/josh/Developer/UNSW/Thesis/bch/build/CMakeFiles/test_decode.dir
+/Users/josh/Developer/UNSW/Thesis/bch/build/CMakeFiles/edit_cache.dir
+/Users/josh/Developer/UNSW/Thesis/bch/build/CMakeFiles/rebuild_cache.dir
