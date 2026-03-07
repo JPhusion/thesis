@@ -23,6 +23,7 @@ const SCREENS = ["compose", "encode", "channel", "decode"];
 const el = {
   status: document.getElementById("status"),
   warning: document.getElementById("warning"),
+  focusModeBtn: document.getElementById("focusModeBtn"),
 
   preset: document.getElementById("preset"),
   advanced: document.getElementById("advanced"),
@@ -62,6 +63,7 @@ const el = {
   encPulse: document.getElementById("encPulse"),
   encNarrative: document.getElementById("encNarrative"),
   toChannelBtn: document.getElementById("toChannelBtn"),
+  fxLayer: document.getElementById("fxLayer"),
 
   channelLane: document.getElementById("channelLane"),
   channelMeta: document.getElementById("channelMeta"),
@@ -98,6 +100,7 @@ const state = {
   cfg: null,
   screen: "compose",
   maxUnlocked: 0,
+  focusMode: true,
 
   message: null,
   cw: null,
@@ -144,6 +147,72 @@ function setTraceNotice(msg) {
   }
   el.traceNotice.textContent = msg;
   el.traceNotice.classList.remove("hidden");
+}
+
+function setFocusMode(enabled) {
+  state.focusMode = !!enabled;
+  document.body.classList.toggle("focus-mode", state.focusMode);
+  if (el.focusModeBtn) {
+    el.focusModeBtn.textContent = state.focusMode ? "Exit Focus" : "Focus Mode";
+  }
+}
+
+function getStreamBitNode(lane, stepIdx) {
+  return lane ? lane.querySelector(`.bit[data-step="${stepIdx}"]`) : null;
+}
+
+function getCodewordBitNode(lane, lsbIdx) {
+  return lane ? lane.querySelector(`.bit[data-lsb="${lsbIdx}"]`) : null;
+}
+
+function getLaneMidNode(lane) {
+  if (!lane) return null;
+  const nodes = lane.querySelectorAll(".bit");
+  if (!nodes.length) return lane;
+  return nodes[Math.floor(nodes.length / 2)];
+}
+
+function launchFx(fromEl, toEl, tone = "") {
+  if (!el.fxLayer || !fromEl || !toEl) return;
+
+  const hostRect = el.fxLayer.getBoundingClientRect();
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+
+  if (!hostRect.width || !hostRect.height) return;
+
+  const startX = fromRect.left + fromRect.width * 0.5 - hostRect.left;
+  const startY = fromRect.top + fromRect.height * 0.5 - hostRect.top;
+  const endX = toRect.left + toRect.width * 0.5 - hostRect.left;
+  const endY = toRect.top + toRect.height * 0.5 - hostRect.top;
+
+  const dot = document.createElement("div");
+  dot.className = "fx-dot";
+  if (tone) dot.classList.add(tone);
+
+  dot.style.left = `${startX - 5}px`;
+  dot.style.top = `${startY - 5}px`;
+  el.fxLayer.appendChild(dot);
+
+  const controlX = (startX + endX) * 0.5;
+  const controlY = Math.min(startY, endY) - 42;
+
+  const anim = dot.animate([
+    { transform: "translate(0px, 0px) scale(0.8)", opacity: 0.0, offset: 0 },
+    {
+      transform: `translate(${(controlX - startX) * 0.55}px, ${(controlY - startY) * 0.55}px) scale(1.1)`,
+      opacity: 1.0,
+      offset: 0.45
+    },
+    { transform: `translate(${endX - startX}px, ${endY - startY}px) scale(0.75)`, opacity: 0.0, offset: 1 }
+  ], {
+    duration: 640,
+    easing: "cubic-bezier(0.2, 0.88, 0.22, 1)"
+  });
+
+  anim.onfinish = () => {
+    dot.remove();
+  };
 }
 
 function sanitizeBits(raw) {
@@ -368,6 +437,7 @@ function renderStreamLane(container, bitsDisplay, opts = {}) {
   for (let i = 0; i < bitsDisplay.length; i++) {
     const bit = bitsDisplay[i] ? 1 : 0;
     const node = makeBitNode(bit, i);
+    node.dataset.step = String(i);
     if (opts.flushFrom !== undefined && i >= opts.flushFrom) node.classList.add("flush");
     if (opts.activeIndex === i) node.classList.add("active");
     if (opts.doneUntil !== undefined && i < opts.doneUntil) node.classList.add("done");
@@ -385,6 +455,7 @@ function renderCodewordLane(container, bitsLsb, opts = {}) {
     const lsbIdx = bitsLsb.length - 1 - di;
     const bit = bitsLsb[lsbIdx] ? 1 : 0;
     const node = makeBitNode(bit, lsbIdx);
+    node.dataset.lsb = String(lsbIdx);
 
     if (opts.activeLsb === lsbIdx) node.classList.add("active");
     if (opts.scanLsb === lsbIdx) node.classList.add("scanning");
@@ -393,7 +464,6 @@ function renderCodewordLane(container, bitsLsb, opts = {}) {
     if (opts.rootSet && opts.rootSet.has(lsbIdx)) node.classList.add("root");
 
     if (opts.clickable) {
-      node.dataset.lsb = String(lsbIdx);
       node.setAttribute("role", "button");
       node.setAttribute("tabindex", "0");
     }
@@ -637,6 +707,10 @@ function renderEncodeFrame() {
   el.encNarrative.textContent = frame.step < state.cfg.k
     ? `Cycle ${frame.step + 1}: message bit ${frame.inBit} enters the LFSR. Top tap was ${frame.top}, so ${frame.top ? "tap XORs are applied" : "no tap XOR this cycle"}.`
     : `Cycle ${frame.step + 1}: zero flush bit enters to push out final parity. Top tap was ${frame.top}.`;
+
+  const fromNode = getStreamBitNode(el.encInputLane, frame.step);
+  const toNode = getLaneMidNode(el.encRegLane);
+  launchFx(fromNode, toNode, frame.top ? "blue" : "");
 
   animatePulse(frame.inBit);
   el.encPulse.title = `${phase} phase`;
@@ -959,6 +1033,8 @@ function renderDecodeVisuals() {
 function applyDecodeFrame(frame) {
   if (!state.decodeViz) return;
   const viz = state.decodeViz;
+  let fxPos = null;
+  let fxTone = "";
 
   switch (frame.type) {
     case "start":
@@ -1005,6 +1081,8 @@ function applyDecodeFrame(frame) {
       if (ev.u0 === 0) {
         viz.rootSet.add(ev.a);
         viz.narrative = `Chien found a root candidate at position ${ev.a}.`;
+        fxPos = ev.a;
+        fxTone = "blue";
       } else {
         viz.narrative = `Chien evaluating position ${ev.a}.`;
       }
@@ -1028,6 +1106,8 @@ function applyDecodeFrame(frame) {
       viz.chienPos = ev.a;
       viz.chienText = `Applying correction at bit position ${ev.a}.`;
       viz.narrative = frame.text;
+      fxPos = ev.a;
+      fxTone = "red";
       break;
     }
 
@@ -1041,6 +1121,11 @@ function applyDecodeFrame(frame) {
   }
 
   renderDecodeVisuals();
+  if (fxPos !== null) {
+    const fromNode = getCodewordBitNode(el.chienLane, fxPos);
+    const toNode = getCodewordBitNode(el.correctedLane, fxPos);
+    launchFx(fromNode, toNode || el.correctedLane, fxTone);
+  }
 }
 
 function seekDecodeFrame(targetIdx) {
@@ -1175,6 +1260,12 @@ async function loadWasmModule() {
 }
 
 function bindEvents() {
+  if (el.focusModeBtn) {
+    el.focusModeBtn.addEventListener("click", () => {
+      setFocusMode(!state.focusMode);
+    });
+  }
+
   el.preset.addEventListener("change", () => {
     applyPresetToInputs();
   });
@@ -1232,9 +1323,11 @@ function bindEvents() {
     if (!node || !state.cw) {
       return;
     }
+    const fromNode = node;
     const pos = Number.parseInt(node.dataset.lsb, 10);
     if (!Number.isInteger(pos)) return;
 
+    const wasSet = state.errorPos.has(pos);
     if (state.errorPos.has(pos)) {
       state.errorPos.delete(pos);
     } else {
@@ -1242,6 +1335,7 @@ function bindEvents() {
     }
 
     renderChannelLane();
+    launchFx(fromNode, el.runDecodeBtn, wasSet ? "blue" : "red");
   });
 
   el.channelLane.addEventListener("keydown", (ev) => {
@@ -1280,6 +1374,7 @@ async function main() {
   initPresetUi();
   bindEvents();
   updateStepperUi();
+  setFocusMode(state.focusMode);
   showScreen("compose");
 
   try {

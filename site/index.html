@@ -15,8 +15,15 @@
 
   <main class="layout">
     <header class="hero">
-      <h1>BCH Visual Lab</h1>
-      <p>Use the exact C BCH implementation in-browser, then watch bits move through encode, channel errors, and decode.</p>
+      <div class="hero-head">
+        <div>
+          <h1>BCH Visual Lab</h1>
+          <p>Use the exact C BCH implementation in-browser, then watch bits move through encode, channel errors, and decode.</p>
+        </div>
+        <div class="hero-actions">
+          <button id="focusModeBtn" class="secondary">Focus Mode</button>
+        </div>
+      </div>
       <div id="status" class="status">Loading WASM module…</div>
     </header>
 
@@ -60,6 +67,7 @@
         <button id="stepChannel" class="step-btn" data-screen="channel" disabled>3 Channel</button>
         <button id="stepDecode" class="step-btn" data-screen="decode" disabled>4 Decode</button>
       </nav>
+      <div id="fxLayer" class="fx-layer" aria-hidden="true"></div>
 
       <section id="screen-compose" class="screen active">
         <h2>Compose Message</h2>
