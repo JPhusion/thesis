@@ -13,6 +13,10 @@ const TRACE = {
   STAGE_DECODE_BEGIN: 100,
   STAGE_SYNDROME: 110,
   STAGE_BM_ITER: 120,
+  BM_ITER_BEGIN: 121,
+  BM_TERM: 122,
+  BM_UPDATE: 123,
+  BM_COEFF: 124,
   STAGE_CHIEN_EVAL: 130,
   STAGE_CORRECT_FLIP: 140,
   STAGE_DECODE_END: 150
@@ -52,9 +56,11 @@ const el = {
   startEncodeBtn: document.getElementById("startEncodeBtn"),
 
   encSpeed: document.getElementById("encSpeed"),
+  encBackBtn: document.getElementById("encBackBtn"),
   encPlayBtn: document.getElementById("encPlayBtn"),
   encPauseBtn: document.getElementById("encPauseBtn"),
   encStepBtn: document.getElementById("encStepBtn"),
+  encResetBtn: document.getElementById("encResetBtn"),
   encFrameMeta: document.getElementById("encFrameMeta"),
   encInputMeta: document.getElementById("encInputMeta"),
   encRegMeta: document.getElementById("encRegMeta"),
@@ -73,25 +79,41 @@ const el = {
 
   decMode: document.getElementById("decMode"),
   decSpeed: document.getElementById("decSpeed"),
+  decBackBtn: document.getElementById("decBackBtn"),
   decPlayBtn: document.getElementById("decPlayBtn"),
   decPauseBtn: document.getElementById("decPauseBtn"),
   decStepBtn: document.getElementById("decStepBtn"),
   decRestartBtn: document.getElementById("decRestartBtn"),
   decFrameMeta: document.getElementById("decFrameMeta"),
+  decStageMeta: document.getElementById("decStageMeta"),
   traceNotice: document.getElementById("traceNotice"),
   rxLane: document.getElementById("rxLane"),
   correctedLane: document.getElementById("correctedLane"),
   syndromeGrid: document.getElementById("syndromeGrid"),
   lambdaLane: document.getElementById("lambdaLane"),
   lambdaMeta: document.getElementById("lambdaMeta"),
+  bmStateList: document.getElementById("bmStateList"),
+  bmDecisionBadge: document.getElementById("bmDecisionBadge"),
+  bmPolyC: document.getElementById("bmPolyC"),
+  bmPolyB: document.getElementById("bmPolyB"),
+  bmPolyT: document.getElementById("bmPolyT"),
+  bmTermList: document.getElementById("bmTermList"),
+  bmTimeline: document.getElementById("bmTimeline"),
   chienLane: document.getElementById("chienLane"),
   chienMeta: document.getElementById("chienMeta"),
   decNarrative: document.getElementById("decNarrative"),
+  decodeResult: document.getElementById("decodeResult"),
+  cardRx: document.getElementById("cardRx"),
+  cardCorrected: document.getElementById("cardCorrected"),
+  cardSyndrome: document.getElementById("cardSyndrome"),
+  cardLambda: document.getElementById("cardLambda"),
+  cardChien: document.getElementById("cardChien"),
 
   outMsg: document.getElementById("outMsg"),
   outCw: document.getElementById("outCw"),
   outRx: document.getElementById("outRx"),
   outCorrected: document.getElementById("outCorrected"),
+  outDecodedMsg: document.getElementById("outDecodedMsg"),
   decodeMeta: document.getElementById("decodeMeta")
 };
 
@@ -125,6 +147,9 @@ const state = {
   decodeSummary: null
 };
 
+const MAX_ANIM_SPEED = 10;
+const DEFAULT_ANIM_SPEED = Math.max(1, Math.round(MAX_ANIM_SPEED / 3));
+
 function setStatus(msg) {
   el.status.textContent = msg;
 }
@@ -149,11 +174,74 @@ function setTraceNotice(msg) {
   el.traceNotice.classList.remove("hidden");
 }
 
+function setDecodeStage(stage) {
+  if (!el.decStageMeta) return;
+
+  const cardMap = {
+    start: [el.cardRx],
+    syndrome: [el.cardSyndrome],
+    bm: [el.cardLambda],
+    chien: [el.cardChien],
+    correction: [el.cardCorrected, el.cardChien],
+    done: [el.cardCorrected]
+  };
+
+  const labelMap = {
+    start: "Stage: start",
+    syndrome: "Stage: syndrome",
+    bm: "Stage: berlekamp-massey",
+    chien: "Stage: chien search",
+    correction: "Stage: correction",
+    done: "Stage: done",
+    idle: "Stage: idle"
+  };
+
+  const allCards = [el.cardRx, el.cardCorrected, el.cardSyndrome, el.cardLambda, el.cardChien];
+  for (const card of allCards) {
+    if (card) card.classList.remove("active-stage");
+  }
+  const activeCards = cardMap[stage] || [];
+  for (const card of activeCards) {
+    if (card) card.classList.add("active-stage");
+  }
+
+  el.decStageMeta.textContent = labelMap[stage] || labelMap.idle;
+}
+
+function clearDecodeOutcome() {
+  if (!el.decodeResult) return;
+  el.decodeResult.classList.add("hidden");
+  el.decodeResult.classList.remove("success", "fail");
+  el.decodeResult.textContent = "";
+  if (el.outDecodedMsg) {
+    el.outDecodedMsg.textContent = "-";
+  }
+}
+
+function updateDecodeOutcome(corrected, rc) {
+  if (!state.cfg || !state.message || !corrected || !el.decodeResult) {
+    clearDecodeOutcome();
+    return;
+  }
+
+  const decoded = corrected.slice(state.cfg.dg, state.cfg.dg + state.cfg.k);
+  const decodedMsgMsb = lsbToMsbString(decoded);
+  const originalMsgMsb = lsbToMsbString(state.message);
+  const matches = decodedMsgMsb === originalMsgMsb;
+
+  el.outDecodedMsg.textContent = decodedMsgMsb;
+  el.decodeResult.classList.remove("hidden", "success", "fail");
+  el.decodeResult.classList.add(matches ? "success" : "fail");
+  el.decodeResult.textContent = matches
+    ? `Decode SUCCESS: decoded message matches input (${decodedMsgMsb}). rc=${rc}`
+    : `Decode FAIL: decoded message (${decodedMsgMsb}) != input (${originalMsgMsb}). rc=${rc}`;
+}
+
 function setFocusMode(enabled) {
   state.focusMode = !!enabled;
   document.body.classList.toggle("focus-mode", state.focusMode);
   if (el.focusModeBtn) {
-    el.focusModeBtn.textContent = state.focusMode ? "Exit Focus" : "Focus Mode";
+    el.focusModeBtn.textContent = state.focusMode ? "Show Configuration" : "Hide Configuration";
   }
 }
 
@@ -262,6 +350,84 @@ function bitsFromMask(mask, len) {
     out[i] = (mask >>> i) & 1;
   }
   return out;
+}
+
+function unpackU16Pair(word) {
+  return {
+    hi: (word >>> 16) & 0xffff,
+    lo: word & 0xffff
+  };
+}
+
+function formatCoeffVector(vec) {
+  if (!vec || !vec.length) return "[]";
+
+  let top = vec.length - 1;
+  while (top > 0 && vec[top] === 0) {
+    top -= 1;
+  }
+
+  const trimmed = vec.slice(0, top + 1);
+  const maxShown = 12;
+  const shown = trimmed.slice(0, maxShown).map((v) => `0x${v.toString(16)}`);
+  if (trimmed.length > maxShown) {
+    shown.push("...");
+  }
+  return `[${shown.join(", ")}]`;
+}
+
+function formatPolyVerbose(vec) {
+  if (!vec || !vec.length) return "-";
+
+  const nonZero = [];
+  for (let i = 0; i < vec.length; i++) {
+    if ((vec[i] >>> 0) !== 0) {
+      nonZero.push(`${i}:0x${(vec[i] >>> 0).toString(16)}`);
+    }
+  }
+
+  if (!nonZero.length) {
+    return `deg<=${vec.length - 1} | all zero`;
+  }
+
+  return `deg<=${vec.length - 1} | ${nonZero.join(", ")}`;
+}
+
+function pulseCard(node, kind) {
+  if (!node) return;
+  const passClass = "bm-flash-pass";
+  const updateClass = "bm-flash-update";
+  const targetClass = kind === "update" ? updateClass : passClass;
+
+  node.classList.remove(passClass, updateClass);
+  void node.offsetWidth;
+  node.classList.add(targetClass);
+  window.setTimeout(() => {
+    node.classList.remove(targetClass);
+  }, 320);
+}
+
+function buildBmCoeffState(rows) {
+  if (!rows.length) {
+    return { C: [], B: [], T: [] };
+  }
+
+  let maxIdx = 0;
+  for (const row of rows) {
+    if (row.b > maxIdx) maxIdx = row.b;
+  }
+
+  const C = new Array(maxIdx + 1).fill(0);
+  const B = new Array(maxIdx + 1).fill(0);
+  const T = new Array(maxIdx + 1).fill(0);
+
+  for (const row of rows) {
+    C[row.b] = row.u0 >>> 0;
+    B[row.b] = row.u1 >>> 0;
+    T[row.b] = row.u2 >>> 0;
+  }
+
+  return { C, B, T };
 }
 
 function mallocU8(arrOrLen) {
@@ -539,16 +705,32 @@ function clearDownstreamState() {
   el.syndromeGrid.innerHTML = "";
   el.lambdaLane.innerHTML = "";
   el.lambdaMeta.textContent = "Awaiting BM iterations.";
+  if (el.bmStateList) el.bmStateList.innerHTML = "";
+  if (el.bmDecisionBadge) {
+    el.bmDecisionBadge.className = "bm-decision idle";
+    el.bmDecisionBadge.textContent = "Awaiting BM iterations.";
+  }
+  if (el.bmPolyC) el.bmPolyC.textContent = "-";
+  if (el.bmPolyB) el.bmPolyB.textContent = "-";
+  if (el.bmPolyT) el.bmPolyT.textContent = "-";
+  if (el.bmTermList) el.bmTermList.innerHTML = "";
+  if (el.bmTimeline) el.bmTimeline.innerHTML = "";
+  if (el.cardLambda) {
+    el.cardLambda.classList.remove("bm-flash-update", "bm-flash-pass");
+  }
   el.chienLane.innerHTML = "";
   el.chienMeta.textContent = "Awaiting Chien search.";
   el.decNarrative.textContent = "Run decode to visualize syndrome, BM, Chien, and correction stages.";
   el.decFrameMeta.textContent = "Frame -";
+  setDecodeStage("idle");
   setTraceNotice("");
+  clearDecodeOutcome();
 
   el.outMsg.textContent = "-";
   el.outCw.textContent = "-";
   el.outRx.textContent = "-";
   el.outCorrected.textContent = "-";
+  el.outDecodedMsg.textContent = "-";
   el.decodeMeta.textContent = "";
 }
 
@@ -723,11 +905,24 @@ function encodeStepForward() {
   renderEncodeFrame();
 }
 
+function encodeStepBackward() {
+  if (!state.encodeFrames.length) return;
+  if (state.encodeIdx <= 0) return;
+  state.encodeIdx -= 1;
+  renderEncodeFrame();
+}
+
+function resetEncodePlayback() {
+  pauseEncode();
+  state.encodeIdx = 0;
+  renderEncodeFrame();
+}
+
 function playEncode() {
   if (!state.encodeFrames.length) return;
   pauseEncode();
 
-  const speed = Number.parseInt(el.encSpeed.value, 10) || 10;
+  const speed = Number.parseInt(el.encSpeed.value, 10) || DEFAULT_ANIM_SPEED;
   const interval = Math.max(35, Math.floor(900 / speed));
 
   state.encTimer = window.setInterval(() => {
@@ -755,6 +950,8 @@ function renderChannelLane() {
     el.errorMeta.textContent = "Encode a message first.";
     return;
   }
+
+  clearDecodeOutcome();
 
   renderCodewordLane(el.channelLane, state.cw, {
     clickable: true,
@@ -829,17 +1026,99 @@ function startEncode() {
 function collectDecodeEventBuckets(events) {
   return {
     syndrome: events.filter((e) => e.kind === TRACE.STAGE_SYNDROME),
-    bm: events.filter((e) => e.kind === TRACE.STAGE_BM_ITER),
+    bmIter: events.filter((e) => e.kind === TRACE.STAGE_BM_ITER),
+    bmIterBegin: events.filter((e) => e.kind === TRACE.BM_ITER_BEGIN),
+    bmTerm: events.filter((e) => e.kind === TRACE.BM_TERM),
+    bmUpdate: events.filter((e) => e.kind === TRACE.BM_UPDATE),
+    bmCoeff: events.filter((e) => e.kind === TRACE.BM_COEFF),
     chien: events.filter((e) => e.kind === TRACE.STAGE_CHIEN_EVAL),
     flips: events.filter((e) => e.kind === TRACE.STAGE_CORRECT_FLIP),
     end: [...events].reverse().find((e) => e.kind === TRACE.STAGE_DECODE_END)
   };
 }
 
+function buildBmCycleFrames(events) {
+  const frames = [];
+
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+
+    if (ev.kind === TRACE.BM_ITER_BEGIN) {
+      frames.push({
+        type: "bm_iter_begin",
+        title: `BM Iter n=${ev.a} begin`,
+        text: `n=${ev.a}, L=${ev.b}, m=${ev.u1}, b=0x${ev.u2.toString(16)}, d_init=0x${ev.u0.toString(16)}.`,
+        event: ev
+      });
+      continue;
+    }
+
+    if (ev.kind === TRACE.BM_TERM) {
+      const pair = unpackU16Pair(ev.u2 >>> 0);
+      const syndIdx = ev.a + 1 - ev.b;
+      const syndDisplayIdx = syndIdx - 1;
+      frames.push({
+        type: "bm_term",
+        title: `BM Term n=${ev.a}, i=${ev.b}`,
+        text: `Check i=${ev.b}: C[i]=0x${ev.u0.toString(16)}, S${syndDisplayIdx}=0x${ev.u1.toString(16)}, prod=0x${pair.hi.toString(16)}, d->0x${pair.lo.toString(16)}.`,
+        event: ev,
+        prod: pair.hi,
+        dAfter: pair.lo,
+        syndIdx,
+        syndDisplayIdx
+      });
+      continue;
+    }
+
+    if (ev.kind === TRACE.BM_UPDATE) {
+      const pair = unpackU16Pair(ev.u2 >>> 0);
+      frames.push({
+        type: "bm_update",
+        title: `BM Update n=${ev.a}`,
+        text: `Update: old L=${ev.b}, new L=${ev.u0}, m=${ev.u1}, b=0x${pair.hi.toString(16)}, scale=d/b=0x${pair.lo.toString(16)}.`,
+        event: ev,
+        bField: pair.hi,
+        scale: pair.lo
+      });
+      continue;
+    }
+
+    if (ev.kind === TRACE.STAGE_BM_ITER) {
+      const coeffRows = [];
+      let j = i + 1;
+      while (j < events.length && events[j].kind === TRACE.BM_COEFF && events[j].a === ev.a) {
+        coeffRows.push(events[j]);
+        j += 1;
+      }
+
+      const coeffState = buildBmCoeffState(coeffRows);
+      const coeffText = coeffRows.length
+        ? ` C=${formatCoeffVector(coeffState.C)} B=${formatCoeffVector(coeffState.B)} T=${formatCoeffVector(coeffState.T)}`
+        : "";
+
+      frames.push({
+        type: "bm_iter_end",
+        title: `BM Iter n=${ev.a} end`,
+        text: `Iteration end: L=${ev.b}, m=${ev.u1}, d=0x${ev.u0.toString(16)}, lambda_mask=0x${ev.u2.toString(16)}.${coeffText}`,
+        event: ev,
+        coeffState
+      });
+
+      i = j - 1;
+    }
+  }
+
+  return frames;
+}
+
 function sampleChienEvents(chienEvents) {
   if (!state.cfg) return { sampled: chienEvents, note: "" };
 
-  const limit = state.cfg.m > 8 ? 260 : (state.cfg.m > 6 ? 520 : 1200);
+  if (state.cfg.m <= 8) {
+    return { sampled: chienEvents, note: "" };
+  }
+
+  const limit = 1200;
   if (chienEvents.length <= limit) {
     return { sampled: chienEvents, note: "" };
   }
@@ -859,6 +1138,7 @@ function sampleChienEvents(chienEvents) {
 
 function buildDecodeFrames(mode, events) {
   const buckets = collectDecodeEventBuckets(events);
+  const bmCycleFrames = buildBmCycleFrames(events);
   const frames = [];
 
   frames.push({
@@ -871,17 +1151,26 @@ function buildDecodeFrames(mode, events) {
     frames.push({
       type: "syndrome_batch",
       title: "Syndrome Stage",
-      text: `Computed ${buckets.syndrome.length} syndrome values S1..S${buckets.syndrome.length}.`,
+      text: `Computed ${buckets.syndrome.length} syndrome values S0..S${Math.max(0, buckets.syndrome.length - 1)}.`,
       events: buckets.syndrome
     });
 
-    if (buckets.bm.length) {
-      const lastBm = buckets.bm[buckets.bm.length - 1];
+    if (buckets.bmIter.length) {
+      const lastBm = buckets.bmIter[buckets.bmIter.length - 1];
+      const bmIterEnds = bmCycleFrames.filter((f) => f.type === "bm_iter_end");
+      const lastIterEnd = bmIterEnds.length ? bmIterEnds[bmIterEnds.length - 1] : null;
+      const termChecks = buckets.bmTerm.length;
+      const updates = buckets.bmUpdate.length;
+      const coeffSummary = lastIterEnd
+        ? ` C=${formatCoeffVector(lastIterEnd.coeffState.C)} B=${formatCoeffVector(lastIterEnd.coeffState.B)} T=${formatCoeffVector(lastIterEnd.coeffState.T)}`
+        : "";
+
       frames.push({
         type: "bm_batch",
         title: "Berlekamp-Massey Stage",
-        text: `Final Lambda degree L=${lastBm.b}, discrepancy d=0x${lastBm.u0.toString(16)}.`,
-        event: lastBm
+        text: `BM iterations=${buckets.bmIter.length}, term checks=${termChecks}, updates=${updates}. Final L=${lastBm.b}, d=0x${lastBm.u0.toString(16)}.${coeffSummary}`,
+        event: lastBm,
+        coeffState: lastIterEnd ? lastIterEnd.coeffState : null
       });
     }
 
@@ -921,21 +1210,17 @@ function buildDecodeFrames(mode, events) {
   }
 
   for (const s of buckets.syndrome) {
+    const disp = s.a - 1;
     frames.push({
       type: "syndrome",
-      title: `Syndrome S${s.a}`,
-      text: `S${s.a} = 0x${s.u0.toString(16)}`,
+      title: `Syndrome S${disp}`,
+      text: `S${disp} = 0x${s.u0.toString(16)}`,
       event: s
     });
   }
 
-  for (const b of buckets.bm) {
-    frames.push({
-      type: "bm",
-      title: `BM Iteration n=${b.a}`,
-      text: `L=${b.b}, d=0x${b.u0.toString(16)}, m=${b.u1}`,
-      event: b
-    });
+  for (const b of bmCycleFrames) {
+    frames.push(b);
   }
 
   const sampledChien = sampleChienEvents(buckets.chien);
@@ -972,21 +1257,117 @@ function buildDecodeFrames(mode, events) {
 
 function renderSyndromeCards(values) {
   const count = state.cfg ? 2 * state.cfg.t : 0;
+  const focusIdx = state.decodeViz ? state.decodeViz.syndromeFocus : null;
   const cards = [];
-  for (let i = 1; i <= count; i++) {
-    const v = values[i];
+
+  el.syndromeGrid.classList.toggle("dense", count > 8);
+
+  for (let disp = 0; disp < count; disp++) {
+    const rawIdx = disp + 1;
+    const v = values[rawIdx];
+    const focusClass = focusIdx === disp ? "focus" : "";
     cards.push(`
-      <div class="syndrome-card">
-        <span>S${i}</span>
-        <strong>${v === null || v === undefined ? "--" : `0x${v.toString(16)}`}</strong>
+      <div class="syndrome-row ${focusClass}">
+        <span class="syndrome-name">S${disp}</span>
+        <strong class="syndrome-value">${v === null || v === undefined ? "--" : `0x${v.toString(16)}`}</strong>
       </div>
     `);
   }
   el.syndromeGrid.innerHTML = cards.join("");
 }
 
+function renderBmPanel(viz) {
+  if (!viz) return;
+
+  const stateRows = [
+    ["n", viz.lambdaN === null ? "-" : String(viz.lambdaN)],
+    ["L", viz.lambdaL === null ? "-" : String(viz.lambdaL)],
+    ["m", viz.lambdaM === null ? "-" : String(viz.lambdaM)],
+    ["b", viz.lambdaB === null ? "-" : `0x${viz.lambdaB.toString(16)}`],
+    ["d", viz.lambdaD === null ? "-" : `0x${viz.lambdaD.toString(16)}`],
+    ["scale", viz.lambdaScale === null ? "-" : `0x${viz.lambdaScale.toString(16)}`],
+    ["L(old)", viz.lambdaOldL === null ? "-" : String(viz.lambdaOldL)],
+    ["L(new)", viz.lambdaNewL === null ? "-" : String(viz.lambdaNewL)]
+  ];
+
+  if (el.bmStateList) {
+    el.bmStateList.innerHTML = stateRows.map(([k, v]) => `
+      <div class="bm-state-item">
+        <span>${k}</span>
+        <strong>${v}</strong>
+      </div>
+    `).join("");
+  }
+
+  if (el.bmDecisionBadge) {
+    const kind = viz.bmDecisionKind || "idle";
+    el.bmDecisionBadge.className = `bm-decision ${kind}`;
+    el.bmDecisionBadge.textContent = viz.bmDecisionText || "Awaiting BM iterations.";
+  }
+
+  if (el.bmPolyC) el.bmPolyC.textContent = formatPolyVerbose(viz.lambdaC);
+  if (el.bmPolyB) el.bmPolyB.textContent = formatPolyVerbose(viz.lambdaBPoly);
+  if (el.bmPolyT) el.bmPolyT.textContent = formatPolyVerbose(viz.lambdaT);
+
+  if (el.bmTermList) {
+    const terms = viz.bmTerms || [];
+    if (!terms.length) {
+      el.bmTermList.innerHTML = `<div class="bm-term-item">No term checks recorded for this frame yet.</div>`;
+    } else {
+      el.bmTermList.innerHTML = terms.map((term, idx) => {
+        const cls = term.prod ? "nonzero" : "zero";
+        const active = idx === terms.length - 1 ? "active" : "";
+        return `
+          <div class="bm-term-item ${cls} ${active}">
+            i=${term.i} | C[i]=0x${term.Ci.toString(16)} | S${term.syndDisplayIdx}=0x${term.Si.toString(16)} | prod=0x${term.prod.toString(16)} | d=>0x${term.dAfter.toString(16)}
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  if (el.bmTimeline) {
+    const timeline = viz.bmTimeline || [];
+    if (!timeline.length) {
+      el.bmTimeline.innerHTML = `<div class="bm-time-node">Awaiting BM</div>`;
+    } else {
+      el.bmTimeline.innerHTML = timeline.map((node) => {
+        const classes = [
+          "bm-time-node",
+          node.status === "update" ? "update" : "",
+          node.status === "pass" ? "pass" : "",
+          viz.lambdaN === node.n ? "current" : ""
+        ].filter(Boolean).join(" ");
+
+        const tag = node.status === "update" ? "update" : node.status === "pass" ? "pass" : "check";
+        return `<div class="${classes}">n=${node.n} ${tag}</div>`;
+      }).join("");
+    }
+  }
+}
+
+function upsertBmTimeline(viz, n, status) {
+  if (!viz) return;
+  if (!Array.isArray(viz.bmTimeline)) {
+    viz.bmTimeline = [];
+  }
+
+  let node = viz.bmTimeline.find((entry) => entry.n === n);
+  if (!node) {
+    node = { n, status };
+    viz.bmTimeline.push(node);
+    viz.bmTimeline.sort((a, b) => a.n - b.n);
+  } else {
+    node.status = status;
+  }
+}
+
 function resetDecodeVisualization() {
   if (!state.cfg) return;
+
+  if (el.cardLambda) {
+    el.cardLambda.classList.remove("bm-flash-update", "bm-flash-pass");
+  }
 
   const rx = state.rx ? new Uint8Array(state.rx) : new Uint8Array(state.cfg.n);
   state.decodeViz = {
@@ -994,8 +1375,24 @@ function resetDecodeVisualization() {
     correctedSet: new Set(),
     syndrome: new Array(2 * state.cfg.t + 1).fill(null),
     lambdaMask: 1,
+    lambdaN: null,
     lambdaL: 0,
+    lambdaM: null,
+    lambdaB: null,
     lambdaD: null,
+    lambdaScale: null,
+    lambdaOldL: null,
+    lambdaNewL: null,
+    lambdaC: null,
+    lambdaBPoly: null,
+    lambdaT: null,
+    bmDecisionKind: "idle",
+    bmDecisionText: "Awaiting BM iterations.",
+    bmTerms: [],
+    bmTimeline: [],
+    bmCurrentN: null,
+    bmCurrentUpdated: false,
+    syndromeFocus: null,
     chienPos: null,
     rootSet: new Set(),
     narrative: "Decoder initialized.",
@@ -1003,6 +1400,7 @@ function resetDecodeVisualization() {
   };
 
   renderDecodeVisuals();
+  setDecodeStage("idle");
   state.decodeApplied = -1;
 }
 
@@ -1018,9 +1416,12 @@ function renderDecodeVisuals() {
 
   const lambdaBits = bitsFromMask(viz.lambdaMask, state.cfg.t + 1);
   renderCodewordLane(el.lambdaLane, lambdaBits);
-  el.lambdaMeta.textContent = viz.lambdaD === null
-    ? "Awaiting BM iterations."
-    : `L=${viz.lambdaL}, d=0x${viz.lambdaD.toString(16)}, lambda_mask(low<=32)=0x${viz.lambdaMask.toString(16)}`;
+  if (viz.lambdaD === null) {
+    el.lambdaMeta.textContent = "Awaiting BM iterations.";
+  } else {
+    el.lambdaMeta.textContent = `Lambda visual mask (low<=32): 0x${viz.lambdaMask.toString(16)}`;
+  }
+  renderBmPanel(viz);
 
   renderCodewordLane(el.chienLane, rxBits, {
     scanLsb: viz.chienPos,
@@ -1038,43 +1439,159 @@ function applyDecodeFrame(frame) {
 
   switch (frame.type) {
     case "start":
+      setDecodeStage("start");
       viz.narrative = frame.text;
       viz.chienText = "Awaiting Chien search.";
+      viz.bmDecisionKind = "idle";
+      viz.bmDecisionText = "Awaiting BM iterations.";
+      viz.bmTerms = [];
+      viz.syndromeFocus = null;
       break;
 
     case "syndrome": {
+      setDecodeStage("syndrome");
       const ev = frame.event;
       viz.syndrome[ev.a] = ev.u0;
-      viz.narrative = `Syndrome pass: S${ev.a} = 0x${ev.u0.toString(16)}.`;
+      viz.syndromeFocus = ev.a - 1;
+      viz.narrative = `Syndrome pass: S${ev.a - 1} = 0x${ev.u0.toString(16)}.`;
       break;
     }
 
     case "syndrome_batch":
+      setDecodeStage("syndrome");
       for (const ev of frame.events) {
         viz.syndrome[ev.a] = ev.u0;
       }
+      viz.syndromeFocus = null;
       viz.narrative = frame.text;
       break;
 
-    case "bm": {
+    case "bm_iter_begin": {
+      setDecodeStage("bm");
       const ev = frame.event;
-      viz.lambdaMask = ev.u2;
+      viz.lambdaN = ev.a;
       viz.lambdaL = ev.b;
       viz.lambdaD = ev.u0;
-      viz.narrative = `BM update at n=${ev.a}: L=${ev.b}, d=0x${ev.u0.toString(16)}.`;
+      viz.lambdaM = ev.u1;
+      viz.lambdaB = ev.u2;
+      viz.lambdaScale = null;
+      viz.lambdaOldL = null;
+      viz.lambdaNewL = null;
+      viz.bmCurrentN = ev.a;
+      viz.bmCurrentUpdated = false;
+      viz.bmTerms = [];
+      viz.syndromeFocus = ev.a;
+      viz.bmDecisionKind = "checking";
+      viz.bmDecisionText = `n=${ev.a}: checking discrepancy terms for Lambda(x).`;
+      upsertBmTimeline(viz, ev.a, "checking");
+      viz.narrative = frame.text;
+      break;
+    }
+
+    case "bm_term": {
+      setDecodeStage("bm");
+      const ev = frame.event;
+      viz.lambdaN = ev.a;
+      viz.lambdaD = frame.dAfter;
+      if (!Array.isArray(viz.bmTerms)) {
+        viz.bmTerms = [];
+      }
+      viz.bmTerms.push({
+        i: ev.b,
+        Ci: ev.u0,
+        Si: ev.u1,
+        prod: frame.prod,
+        dAfter: frame.dAfter,
+        syndDisplayIdx: frame.syndDisplayIdx
+      });
+      if (viz.bmTerms.length > 28) {
+        viz.bmTerms.shift();
+      }
+      viz.syndromeFocus = frame.syndIdx - 1;
+      viz.bmDecisionKind = "checking";
+      viz.bmDecisionText = `n=${ev.a}: term i=${ev.b} processed, current d=0x${frame.dAfter.toString(16)}.`;
+      viz.narrative = frame.text;
+      break;
+    }
+
+    case "bm_update": {
+      setDecodeStage("bm");
+      const ev = frame.event;
+      viz.lambdaN = ev.a;
+      viz.lambdaOldL = ev.b;
+      viz.lambdaNewL = ev.u0;
+      viz.lambdaL = ev.u0;
+      viz.lambdaM = ev.u1;
+      viz.lambdaB = frame.bField;
+      viz.lambdaScale = frame.scale;
+      viz.bmCurrentUpdated = true;
+      viz.syndromeFocus = ev.a;
+      viz.bmDecisionKind = "update";
+      viz.bmDecisionText = `n=${ev.a}: d != 0, update Lambda(x) using scaled B(x).`;
+      upsertBmTimeline(viz, ev.a, "update");
+      pulseCard(el.cardLambda, "update");
+      viz.narrative = frame.text;
+      break;
+    }
+
+    case "bm_iter_end": {
+      setDecodeStage("bm");
+      const ev = frame.event;
+      viz.lambdaN = ev.a;
+      viz.lambdaMask = ev.u2;
+      viz.lambdaL = ev.b;
+      viz.lambdaM = ev.u1;
+      viz.lambdaD = ev.u0;
+      viz.lambdaOldL = null;
+      viz.lambdaNewL = null;
+      viz.lambdaC = frame.coeffState.C;
+      viz.lambdaBPoly = frame.coeffState.B;
+      viz.lambdaT = frame.coeffState.T;
+      if (viz.bmCurrentUpdated) {
+        viz.bmDecisionKind = "update";
+        viz.bmDecisionText = `n=${ev.a}: polynomial updated and committed.`;
+        upsertBmTimeline(viz, ev.a, "update");
+      } else {
+        viz.bmDecisionKind = "pass";
+        viz.bmDecisionText = `n=${ev.a}: no polynomial update needed (check passed).`;
+        upsertBmTimeline(viz, ev.a, "pass");
+        pulseCard(el.cardLambda, "pass");
+      }
+      viz.bmCurrentN = ev.a;
+      viz.bmCurrentUpdated = false;
+      viz.syndromeFocus = null;
+      viz.narrative = frame.text;
       break;
     }
 
     case "bm_batch": {
+      setDecodeStage("bm");
       const ev = frame.event;
+      viz.lambdaN = ev.a;
       viz.lambdaMask = ev.u2;
       viz.lambdaL = ev.b;
       viz.lambdaD = ev.u0;
+      viz.lambdaM = ev.u1;
+      viz.lambdaOldL = null;
+      viz.lambdaNewL = null;
+      if (frame.coeffState) {
+        viz.lambdaC = frame.coeffState.C;
+        viz.lambdaBPoly = frame.coeffState.B;
+        viz.lambdaT = frame.coeffState.T;
+      }
+      viz.bmDecisionKind = "idle";
+      viz.bmDecisionText = "Stage mode summary. Switch to cycle mode for per-check BM decisions.";
+      viz.bmTerms = [];
+      viz.bmTimeline = [];
+      viz.bmCurrentUpdated = false;
+      viz.syndromeFocus = null;
       viz.narrative = frame.text;
       break;
     }
 
     case "chien": {
+      setDecodeStage("chien");
+      viz.syndromeFocus = null;
       const ev = frame.event;
       viz.chienPos = ev.a;
       viz.chienText = `Scanning pos=${ev.a}, eval=0x${ev.u0.toString(16)}, x=0x${ev.u1.toString(16)}.`;
@@ -1090,6 +1607,8 @@ function applyDecodeFrame(frame) {
     }
 
     case "chien_batch":
+      setDecodeStage("chien");
+      viz.syndromeFocus = null;
       viz.chienPos = frame.lastPos;
       for (const pos of frame.roots) {
         viz.rootSet.add(pos);
@@ -1099,6 +1618,8 @@ function applyDecodeFrame(frame) {
       break;
 
     case "flip": {
+      setDecodeStage("correction");
+      viz.syndromeFocus = null;
       const ev = frame.event;
       viz.corrected[ev.a] ^= 1;
       viz.correctedSet.add(ev.a);
@@ -1112,6 +1633,8 @@ function applyDecodeFrame(frame) {
     }
 
     case "end":
+      setDecodeStage("done");
+      viz.syndromeFocus = null;
       viz.narrative = frame.text;
       viz.chienText = `Decode complete: rc=${frame.event.a}, corrected_errs=${frame.event.b}.`;
       break;
@@ -1156,11 +1679,20 @@ function decodeStepForward() {
   seekDecodeFrame(state.decodeIdx + 1);
 }
 
+function decodeStepBackward() {
+  if (!state.decodeFrames.length) return;
+  if (state.decodeIdx <= 0) {
+    seekDecodeFrame(0);
+    return;
+  }
+  seekDecodeFrame(state.decodeIdx - 1);
+}
+
 function playDecode() {
   if (!state.decodeFrames.length) return;
   pauseDecode();
 
-  const speed = Number.parseInt(el.decSpeed.value, 10) || 10;
+  const speed = Number.parseInt(el.decSpeed.value, 10) || DEFAULT_ANIM_SPEED;
   const interval = Math.max(35, Math.floor(900 / speed));
 
   state.decTimer = window.setInterval(() => {
@@ -1213,6 +1745,7 @@ function runDecode() {
 
     el.outRx.textContent = lsbToMsbString(rx);
     el.outCorrected.textContent = lsbToMsbString(corrected);
+    updateDecodeOutcome(corrected, rcDec);
     el.decodeMeta.textContent = `rc=${rcDec}  out_errs=${outErrs}  injected=${state.decodeSummary.injected.length} (${state.decodeSummary.injected.join(", ") || "none"})`;
 
     unlockScreen("decode");
@@ -1303,12 +1836,17 @@ function bindEvents() {
     }
   });
 
+  el.encBackBtn.addEventListener("click", () => {
+    pauseEncode();
+    encodeStepBackward();
+  });
   el.encPlayBtn.addEventListener("click", playEncode);
   el.encPauseBtn.addEventListener("click", pauseEncode);
   el.encStepBtn.addEventListener("click", () => {
     pauseEncode();
     encodeStepForward();
   });
+  el.encResetBtn.addEventListener("click", resetEncodePlayback);
 
   el.toChannelBtn.addEventListener("click", () => {
     if (!state.cw) {
@@ -1361,6 +1899,10 @@ function bindEvents() {
 
   el.decMode.addEventListener("change", rebuildDecodeFramesForMode);
 
+  el.decBackBtn.addEventListener("click", () => {
+    pauseDecode();
+    decodeStepBackward();
+  });
   el.decPlayBtn.addEventListener("click", playDecode);
   el.decPauseBtn.addEventListener("click", pauseDecode);
   el.decStepBtn.addEventListener("click", () => {
@@ -1370,7 +1912,24 @@ function bindEvents() {
   el.decRestartBtn.addEventListener("click", restartDecodePlayback);
 }
 
+function initPlaybackDefaults() {
+  if (el.encSpeed) {
+    el.encSpeed.min = "1";
+    el.encSpeed.max = String(MAX_ANIM_SPEED);
+    el.encSpeed.value = String(DEFAULT_ANIM_SPEED);
+  }
+  if (el.decSpeed) {
+    el.decSpeed.min = "1";
+    el.decSpeed.max = String(MAX_ANIM_SPEED);
+    el.decSpeed.value = String(DEFAULT_ANIM_SPEED);
+  }
+  if (el.decMode) {
+    el.decMode.value = "cycle";
+  }
+}
+
 async function main() {
+  initPlaybackDefaults();
   initPresetUi();
   bindEvents();
   updateStepperUi();
