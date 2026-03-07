@@ -1,4 +1,5 @@
 #include "bch.h"
+#include <stddef.h>
 
 static uint16_t gf_pow_alpha(const gf_ctx_t *gf, int e) {
     const int n = (1 << gf->m) - 1;
@@ -15,6 +16,10 @@ static uint16_t gf_pow_alpha(const gf_ctx_t *gf, int e) {
 }
 
 int bch_chien_search(const bch_ctx_t *bch, const uint16_t *lambda_poly, int L, int *err_pos) {
+    return bch_chien_search_ex(bch, lambda_poly, L, err_pos, NULL, NULL);
+}
+
+int bch_chien_search_ex(const bch_ctx_t *bch, const uint16_t *lambda_poly, int L, int *err_pos, void (*eval_cb)(void *user, int pos, int L, uint16_t x, uint16_t acc), void *user) {
     if (!bch || !lambda_poly || !err_pos || L < 0 || L > bch->t) {
         return -1;
     }
@@ -34,6 +39,10 @@ int bch_chien_search(const bch_ctx_t *bch, const uint16_t *lambda_poly, int L, i
         for (int i = L; i >= 0; i--) {
             acc = gf_mul(&bch->gf, acc, x);
             acc ^= lambda_poly[i];
+        }
+
+        if (eval_cb) {
+            eval_cb(user, pos, L, x, acc);
         }
 
         if (acc == 0u) {

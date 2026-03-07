@@ -379,8 +379,10 @@ button.secondary {
   display: flex;
   gap: 0.34rem;
   overflow-x: auto;
-  overflow-y: visible;
-  padding: 0.35rem 0.1rem 0.46rem;
+  overflow-y: hidden;
+  padding: 0.92rem 0.1rem 0.52rem;
+  margin-top: -0.52rem;
+  position: relative;
   scrollbar-width: thin;
 }
 
@@ -505,6 +507,20 @@ button.secondary {
   border-top: 2px dashed #6c90b5;
 }
 
+.path-label {
+  position: absolute;
+  top: 0.38rem;
+  right: 0.66rem;
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  font-size: 0.7rem;
+  color: #345a7a;
+  background: rgba(244, 250, 255, 0.75);
+  border: 1px solid rgba(141, 170, 197, 0.55);
+  border-radius: 999px;
+  padding: 0.14rem 0.46rem;
+  letter-spacing: 0.01em;
+}
+
 .pulse {
   position: absolute;
   top: 50%;
@@ -561,10 +577,17 @@ button.secondary {
   padding: 0.56rem;
   display: grid;
   gap: 0.38rem;
+  transition: border-color 0.26s ease, box-shadow 0.26s ease, transform 0.26s ease;
 }
 
 .stage-card.wide {
   grid-column: 1 / -1;
+}
+
+.stage-card.active-stage {
+  border-color: #2d8fdb;
+  box-shadow: 0 0 0 2px rgba(45, 143, 219, 0.2), 0 16px 26px rgba(33, 84, 126, 0.16);
+  transform: translateY(-2px);
 }
 
 .stage-card h3 {
@@ -605,6 +628,28 @@ button.secondary {
   display: grid;
   gap: 0.66rem;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.decode-result {
+  border-radius: 12px;
+  padding: 0.58rem 0.72rem;
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  font-size: 0.82rem;
+  border: 1px solid #b7c9db;
+  background: #edf5fe;
+  color: #21425f;
+}
+
+.decode-result.success {
+  border-color: #6fb85a;
+  background: #eefae9;
+  color: #1d5d1c;
+}
+
+.decode-result.fail {
+  border-color: #d1756d;
+  background: #fff0ee;
+  color: #7a1d16;
 }
 
 pre {

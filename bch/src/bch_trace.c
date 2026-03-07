@@ -49,24 +49,19 @@ static uint32_t pack_u16_coeffs32(const uint16_t *v, int ncoeff) {
     return out;
 }
 
-static void lfsr_step_trace(const uint8_t *g, int dg, uint8_t *reg, uint8_t in_bit, uint8_t *out_top) {
-    const uint8_t top = reg[dg - 1] & 1u;
-    if (out_top) {
-        *out_top = top;
-    }
+static uint32_t pack_u16_pair(uint16_t hi, uint16_t lo) {
+    return ((uint32_t)hi << 16) | (uint32_t)lo;
+}
 
-    for (int j = dg - 1; j > 0; j--) {
-        reg[j] = reg[j - 1] & 1u;
-    }
-    reg[0] = in_bit & 1u;
+typedef struct {
+    bch_trace_t *trace;
+    int last_step;
+} encode_trace_user_t;
 
-    if (top) {
-        for (int j = 0; j < dg; j++) {
-            if (g[j] & 1u) {
-                reg[j] ^= 1u;
-            }
-        }
-    }
+static void trace_encode_step(void *user, int step, uint8_t in_bit, uint8_t top, const uint8_t *reg, int reg_len) {
+    encode_trace_user_t *u = (encode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_ENCODE_STEP, step, (int32_t)in_bit, (uint32_t)top, pack_bits32(reg, reg_len), (uint32_t)reg_len);
+    u->last_step = step;
 }
 
 void bch_trace_init(bch_trace_t *tr, size_t cap) {
@@ -107,162 +102,81 @@ void bch_trace_free(bch_trace_t *tr) {
 }
 
 int bch_encode_systematic_trace(const bch_ctx_t *bch, const uint8_t *msg, uint8_t *cw, bch_trace_t *trace) {
-    if (!bch || !msg || !cw) {
+    if (!bch || !msg || !cw || !bch->g) {
         return -1;
     }
 
-    const int n = bch->n;
-    const int k = bch->k;
-    const int dg = bch->dg;
-    const uint8_t *g = bch->g;
+    trace_append(trace, BCH_TRACE_STAGE_ENCODE_BEGIN, bch->k, bch->dg, 0u, 0u, 0u);
 
-    memset(cw, 0, (size_t)n);
-    for (int i = 0; i < k; i++) {
-        cw[dg + i] = msg[i] & 1u;
+    encode_trace_user_t user = {
+        .trace = trace,
+        .last_step = -1
+    };
+
+    int rc = bch_encode_systematic_ex(bch, msg, cw, trace_encode_step, &user);
+    if (rc != 0) {
+        return rc;
     }
 
-    trace_append(trace, BCH_TRACE_STAGE_ENCODE_BEGIN, k, dg, 0u, 0u, 0u);
-
-    if (dg <= 0) {
-        trace_append(trace, BCH_TRACE_STAGE_ENCODE_END, 0, 0, 0u, 0u, 0u);
-        return 0;
-    }
-
-    uint8_t *reg = (uint8_t *)calloc((size_t)dg, 1);
-    if (!reg) {
-        return -1;
-    }
-
-    int step = 0;
-    for (int i = k - 1; i >= 0; i--) {
-        uint8_t top = 0u;
-        uint8_t in_bit = msg[i] & 1u;
-        lfsr_step_trace(g, dg, reg, in_bit, &top);
-        trace_append(trace, BCH_TRACE_ENCODE_STEP, step, in_bit, (uint32_t)top, pack_bits32(reg, dg), (uint32_t)dg);
-        step++;
-    }
-    for (int z = 0; z < dg; z++) {
-        uint8_t top = 0u;
-        lfsr_step_trace(g, dg, reg, 0u, &top);
-        trace_append(trace, BCH_TRACE_ENCODE_STEP, step, 0, (uint32_t)top, pack_bits32(reg, dg), (uint32_t)dg);
-        step++;
-    }
-
-    for (int j = 0; j < dg; j++) {
-        cw[j] = reg[j] & 1u;
-    }
-    trace_append(trace, BCH_TRACE_STAGE_ENCODE_END, step, 0, pack_bits32(cw, dg), (uint32_t)dg, 0u);
-
-    free(reg);
+    const int total_steps = user.last_step + 1;
+    trace_append(trace, BCH_TRACE_STAGE_ENCODE_END, total_steps, 0, pack_bits32(cw, bch->dg), (uint32_t)bch->dg, 0u);
     return 0;
 }
 
-static int berlekamp_massey_trace(const bch_ctx_t *bch, const uint16_t *S, uint16_t *lambda_poly, int *out_L, bch_trace_t *trace) {
-    const int t = bch->t;
-    const int ns = 2 * t;
-    const gf_ctx_t *gf = &bch->gf;
+typedef struct {
+    const bch_ctx_t *bch;
+    bch_trace_t *trace;
+} decode_trace_user_t;
 
-    uint16_t *C = (uint16_t *)calloc((size_t)(ns + 1), sizeof(uint16_t));
-    uint16_t *B = (uint16_t *)calloc((size_t)(ns + 1), sizeof(uint16_t));
-    uint16_t *T = (uint16_t *)calloc((size_t)(ns + 1), sizeof(uint16_t));
-    if (!C || !B || !T) {
-        free(C);
-        free(B);
-        free(T);
-        return -1;
-    }
-
-    C[0] = 1u;
-    B[0] = 1u;
-
-    int L = 0;
-    int m = 1;
-    uint16_t b = 1u;
-
-    for (int n = 0; n < ns; n++) {
-        uint16_t d = S[n + 1];
-        for (int i = 1; i <= L; i++) {
-            if (C[i] != 0u && S[n + 1 - i] != 0u) {
-                d ^= gf_mul(gf, C[i], S[n + 1 - i]);
-            }
-        }
-
-        trace_append(trace, BCH_TRACE_STAGE_BM_ITER, n, L, d, (uint32_t)m, pack_u16_coeffs32(C, t + 1));
-
-        if (d == 0u) {
-            m++;
-            continue;
-        }
-
-        memcpy(T, C, (size_t)(ns + 1) * sizeof(uint16_t));
-        const uint16_t scale = gf_div(gf, d, b);
-
-        for (int i = 0; i + m <= ns; i++) {
-            if (B[i] != 0u) {
-                C[i + m] ^= gf_mul(gf, scale, B[i]);
-            }
-        }
-
-        if (2 * L <= n) {
-            L = n + 1 - L;
-            memcpy(B, T, (size_t)(ns + 1) * sizeof(uint16_t));
-            b = d;
-            m = 1;
-        } else {
-            m++;
-        }
-    }
-
-    memset(lambda_poly, 0, (size_t)(t + 1) * sizeof(uint16_t));
-    for (int i = 0; i <= t && i <= ns; i++) {
-        lambda_poly[i] = C[i];
-    }
-    *out_L = L;
-
-    free(C);
-    free(B);
-    free(T);
-    return (L > t) ? -1 : 0;
+static void trace_stage_begin(void *user, int n, int k, int t, int dg) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_STAGE_DECODE_BEGIN, n, k, (uint32_t)t, (uint32_t)dg, 0u);
 }
 
-static uint16_t gf_pow_alpha_signed(const gf_ctx_t *gf, int e) {
-    const int n = (1 << gf->m) - 1;
-    int ee = e % n;
-    if (ee < 0) {
-        ee += n;
-    }
-
-    uint16_t r = 1u;
-    for (int i = 0; i < ee; i++) {
-        r = gf_mul(gf, r, 0x2u);
-    }
-    return r;
+static void trace_syndrome(void *user, int idx, uint16_t value) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_STAGE_SYNDROME, idx, 0, value, 0u, 0u);
 }
 
-static int chien_search_trace(const bch_ctx_t *bch, const uint16_t *lambda_poly, int L, int *err_pos, bch_trace_t *trace) {
-    if (L < 0 || L > bch->t) {
-        return -1;
+static void trace_bm_iter_begin(void *user, int n, int L, int m, uint16_t b, uint16_t d_init) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_BM_ITER_BEGIN, n, L, d_init, (uint32_t)m, (uint32_t)b);
+}
+
+static void trace_bm_term(void *user, int n, int i, uint16_t C_i, uint16_t S_term, uint16_t prod, uint16_t d_after) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_BM_TERM, n, i, (uint32_t)C_i, (uint32_t)S_term, pack_u16_pair(prod, d_after));
+}
+
+static void trace_bm_update(void *user, int n, int old_L, int new_L, int m, uint16_t b, uint16_t scale) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_BM_UPDATE, n, old_L, (uint32_t)new_L, (uint32_t)m, pack_u16_pair(b, scale));
+}
+
+static void trace_bm_iter_end(void *user, int n, int L, int m, uint16_t b, uint16_t d, const uint16_t *C, const uint16_t *B, const uint16_t *T, int ns) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_STAGE_BM_ITER, n, L, d, (uint32_t)m, pack_u16_coeffs32(C, u->bch->t + 1));
+
+    const int coeff_count = ns + 1;
+    for (int i = 0; i < coeff_count; i++) {
+        trace_append(u->trace, BCH_TRACE_BM_COEFF, n, i, (uint32_t)C[i], (uint32_t)B[i], (uint32_t)T[i]);
     }
+    (void)b;
+}
 
-    int found = 0;
-    for (int pos = 0; pos < bch->n; pos++) {
-        uint16_t x = gf_pow_alpha_signed(&bch->gf, -pos);
-        uint16_t acc = 0u;
-        for (int i = L; i >= 0; i--) {
-            acc = gf_mul(&bch->gf, acc, x);
-            acc ^= lambda_poly[i];
-        }
+static void trace_chien_eval(void *user, int pos, int L, uint16_t x, uint16_t acc) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_STAGE_CHIEN_EVAL, pos, L, acc, x, 0u);
+}
 
-        trace_append(trace, BCH_TRACE_STAGE_CHIEN_EVAL, pos, L, acc, x, 0u);
+static void trace_flip(void *user, int pos, int ordinal) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_STAGE_CORRECT_FLIP, pos, ordinal, 0u, 0u, 0u);
+}
 
-        if (acc == 0u) {
-            if (found >= L) {
-                return -1;
-            }
-            err_pos[found++] = pos;
-        }
-    }
-    return (found == L) ? found : -1;
+static void trace_stage_end(void *user, int rc, int errs, uint16_t detail) {
+    decode_trace_user_t *u = (decode_trace_user_t *)user;
+    trace_append(u->trace, BCH_TRACE_STAGE_DECODE_END, rc, errs, detail, 0u, 0u);
 }
 
 int bch_decode_trace(bch_ctx_t *bch, uint8_t *rx, int *out_errs, bch_trace_t *trace) {
@@ -270,89 +184,27 @@ int bch_decode_trace(bch_ctx_t *bch, uint8_t *rx, int *out_errs, bch_trace_t *tr
         return -1;
     }
 
-    const int t = bch->t;
-    const int ns = 2 * t;
-    *out_errs = 0;
+    decode_trace_user_t user = {
+        .bch = bch,
+        .trace = trace
+    };
 
-    trace_append(trace, BCH_TRACE_STAGE_DECODE_BEGIN, bch->n, bch->k, (uint32_t)bch->t, (uint32_t)bch->dg, 0u);
+    bch_bm_hooks_t bm_hooks = {
+        .iter_begin = trace_bm_iter_begin,
+        .term = trace_bm_term,
+        .iter_end = trace_bm_iter_end,
+        .update = trace_bm_update
+    };
 
-    uint16_t *S = (uint16_t *)calloc((size_t)(ns + 1), sizeof(uint16_t));
-    uint16_t *lambda_poly = (uint16_t *)calloc((size_t)(t + 1), sizeof(uint16_t));
-    int *err_pos = (int *)calloc((size_t)t, sizeof(int));
-    if (!S || !lambda_poly || !err_pos) {
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
-        return -1;
-    }
+    bch_decode_hooks_t hooks = {
+        .stage_begin = trace_stage_begin,
+        .syndrome = trace_syndrome,
+        .bm_hooks = &bm_hooks,
+        .chien_eval = trace_chien_eval,
+        .flip = trace_flip,
+        .stage_end = trace_stage_end,
+        .user = &user
+    };
 
-    bch_compute_syndromes(bch, rx, S);
-    for (int i = 1; i <= ns; i++) {
-        trace_append(trace, BCH_TRACE_STAGE_SYNDROME, i, 0, S[i], 0u, 0u);
-    }
-
-    int all_zero = 1;
-    for (int i = 1; i <= ns; i++) {
-        if (S[i] != 0u) {
-            all_zero = 0;
-            break;
-        }
-    }
-    if (all_zero) {
-        trace_append(trace, BCH_TRACE_STAGE_DECODE_END, 0, 0, 0u, 0u, 0u);
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
-        return 0;
-    }
-
-    int L = 0;
-    if (berlekamp_massey_trace(bch, S, lambda_poly, &L, trace) != 0) {
-        trace_append(trace, BCH_TRACE_STAGE_DECODE_END, -1, 0, 0u, 0u, 0u);
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
-        return -1;
-    }
-
-    int found = chien_search_trace(bch, lambda_poly, L, err_pos, trace);
-    if (found < 0) {
-        trace_append(trace, BCH_TRACE_STAGE_DECODE_END, -1, 0, 0u, 0u, 0u);
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
-        return -1;
-    }
-
-    for (int i = 0; i < found; i++) {
-        int p = err_pos[i];
-        if (p < 0 || p >= bch->n) {
-            trace_append(trace, BCH_TRACE_STAGE_DECODE_END, -1, found, 0u, 0u, 0u);
-            free(S);
-            free(lambda_poly);
-            free(err_pos);
-            return -1;
-        }
-        rx[p] ^= 1u;
-        trace_append(trace, BCH_TRACE_STAGE_CORRECT_FLIP, p, i, 0u, 0u, 0u);
-    }
-
-    bch_compute_syndromes(bch, rx, S);
-    for (int i = 1; i <= ns; i++) {
-        if (S[i] != 0u) {
-            trace_append(trace, BCH_TRACE_STAGE_DECODE_END, -1, found, S[i], 0u, 0u);
-            free(S);
-            free(lambda_poly);
-            free(err_pos);
-            return -1;
-        }
-    }
-
-    *out_errs = found;
-    trace_append(trace, BCH_TRACE_STAGE_DECODE_END, 0, found, 0u, 0u, 0u);
-
-    free(S);
-    free(lambda_poly);
-    free(err_pos);
-    return 0;
+    return bch_decode_ex(bch, rx, out_errs, &hooks);
 }
