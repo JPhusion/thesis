@@ -92,6 +92,13 @@ const el = {
   syndromeGrid: document.getElementById("syndromeGrid"),
   lambdaLane: document.getElementById("lambdaLane"),
   lambdaMeta: document.getElementById("lambdaMeta"),
+  bmStateList: document.getElementById("bmStateList"),
+  bmDecisionBadge: document.getElementById("bmDecisionBadge"),
+  bmPolyC: document.getElementById("bmPolyC"),
+  bmPolyB: document.getElementById("bmPolyB"),
+  bmPolyT: document.getElementById("bmPolyT"),
+  bmTermList: document.getElementById("bmTermList"),
+  bmTimeline: document.getElementById("bmTimeline"),
   chienLane: document.getElementById("chienLane"),
   chienMeta: document.getElementById("chienMeta"),
   decNarrative: document.getElementById("decNarrative"),
@@ -234,7 +241,7 @@ function setFocusMode(enabled) {
   state.focusMode = !!enabled;
   document.body.classList.toggle("focus-mode", state.focusMode);
   if (el.focusModeBtn) {
-    el.focusModeBtn.textContent = state.focusMode ? "Exit Focus" : "Focus Mode";
+    el.focusModeBtn.textContent = state.focusMode ? "Show Configuration" : "Hide Configuration";
   }
 }
 
@@ -367,6 +374,37 @@ function formatCoeffVector(vec) {
     shown.push("...");
   }
   return `[${shown.join(", ")}]`;
+}
+
+function formatPolyVerbose(vec) {
+  if (!vec || !vec.length) return "-";
+
+  const nonZero = [];
+  for (let i = 0; i < vec.length; i++) {
+    if ((vec[i] >>> 0) !== 0) {
+      nonZero.push(`${i}:0x${(vec[i] >>> 0).toString(16)}`);
+    }
+  }
+
+  if (!nonZero.length) {
+    return `deg<=${vec.length - 1} | all zero`;
+  }
+
+  return `deg<=${vec.length - 1} | ${nonZero.join(", ")}`;
+}
+
+function pulseCard(node, kind) {
+  if (!node) return;
+  const passClass = "bm-flash-pass";
+  const updateClass = "bm-flash-update";
+  const targetClass = kind === "update" ? updateClass : passClass;
+
+  node.classList.remove(passClass, updateClass);
+  void node.offsetWidth;
+  node.classList.add(targetClass);
+  window.setTimeout(() => {
+    node.classList.remove(targetClass);
+  }, 320);
 }
 
 function buildBmCoeffState(rows) {
@@ -667,6 +705,19 @@ function clearDownstreamState() {
   el.syndromeGrid.innerHTML = "";
   el.lambdaLane.innerHTML = "";
   el.lambdaMeta.textContent = "Awaiting BM iterations.";
+  if (el.bmStateList) el.bmStateList.innerHTML = "";
+  if (el.bmDecisionBadge) {
+    el.bmDecisionBadge.className = "bm-decision idle";
+    el.bmDecisionBadge.textContent = "Awaiting BM iterations.";
+  }
+  if (el.bmPolyC) el.bmPolyC.textContent = "-";
+  if (el.bmPolyB) el.bmPolyB.textContent = "-";
+  if (el.bmPolyT) el.bmPolyT.textContent = "-";
+  if (el.bmTermList) el.bmTermList.innerHTML = "";
+  if (el.bmTimeline) el.bmTimeline.innerHTML = "";
+  if (el.cardLambda) {
+    el.cardLambda.classList.remove("bm-flash-update", "bm-flash-pass");
+  }
   el.chienLane.innerHTML = "";
   el.chienMeta.textContent = "Awaiting Chien search.";
   el.decNarrative.textContent = "Run decode to visualize syndrome, BM, Chien, and correction stages.";
@@ -1005,14 +1056,16 @@ function buildBmCycleFrames(events) {
     if (ev.kind === TRACE.BM_TERM) {
       const pair = unpackU16Pair(ev.u2 >>> 0);
       const syndIdx = ev.a + 1 - ev.b;
+      const syndDisplayIdx = syndIdx - 1;
       frames.push({
         type: "bm_term",
         title: `BM Term n=${ev.a}, i=${ev.b}`,
-        text: `Check i=${ev.b}: C[i]=0x${ev.u0.toString(16)}, S[${syndIdx}]=0x${ev.u1.toString(16)}, prod=0x${pair.hi.toString(16)}, d->0x${pair.lo.toString(16)}.`,
+        text: `Check i=${ev.b}: C[i]=0x${ev.u0.toString(16)}, S${syndDisplayIdx}=0x${ev.u1.toString(16)}, prod=0x${pair.hi.toString(16)}, d->0x${pair.lo.toString(16)}.`,
         event: ev,
         prod: pair.hi,
         dAfter: pair.lo,
-        syndIdx
+        syndIdx,
+        syndDisplayIdx
       });
       continue;
     }
@@ -1098,7 +1151,7 @@ function buildDecodeFrames(mode, events) {
     frames.push({
       type: "syndrome_batch",
       title: "Syndrome Stage",
-      text: `Computed ${buckets.syndrome.length} syndrome values S1..S${buckets.syndrome.length}.`,
+      text: `Computed ${buckets.syndrome.length} syndrome values S0..S${Math.max(0, buckets.syndrome.length - 1)}.`,
       events: buckets.syndrome
     });
 
@@ -1157,10 +1210,11 @@ function buildDecodeFrames(mode, events) {
   }
 
   for (const s of buckets.syndrome) {
+    const disp = s.a - 1;
     frames.push({
       type: "syndrome",
-      title: `Syndrome S${s.a}`,
-      text: `S${s.a} = 0x${s.u0.toString(16)}`,
+      title: `Syndrome S${disp}`,
+      text: `S${disp} = 0x${s.u0.toString(16)}`,
       event: s
     });
   }
@@ -1203,21 +1257,117 @@ function buildDecodeFrames(mode, events) {
 
 function renderSyndromeCards(values) {
   const count = state.cfg ? 2 * state.cfg.t : 0;
+  const focusIdx = state.decodeViz ? state.decodeViz.syndromeFocus : null;
   const cards = [];
-  for (let i = 1; i <= count; i++) {
-    const v = values[i];
+
+  el.syndromeGrid.classList.toggle("dense", count > 8);
+
+  for (let disp = 0; disp < count; disp++) {
+    const rawIdx = disp + 1;
+    const v = values[rawIdx];
+    const focusClass = focusIdx === disp ? "focus" : "";
     cards.push(`
-      <div class="syndrome-card">
-        <span>S${i}</span>
-        <strong>${v === null || v === undefined ? "--" : `0x${v.toString(16)}`}</strong>
+      <div class="syndrome-row ${focusClass}">
+        <span class="syndrome-name">S${disp}</span>
+        <strong class="syndrome-value">${v === null || v === undefined ? "--" : `0x${v.toString(16)}`}</strong>
       </div>
     `);
   }
   el.syndromeGrid.innerHTML = cards.join("");
 }
 
+function renderBmPanel(viz) {
+  if (!viz) return;
+
+  const stateRows = [
+    ["n", viz.lambdaN === null ? "-" : String(viz.lambdaN)],
+    ["L", viz.lambdaL === null ? "-" : String(viz.lambdaL)],
+    ["m", viz.lambdaM === null ? "-" : String(viz.lambdaM)],
+    ["b", viz.lambdaB === null ? "-" : `0x${viz.lambdaB.toString(16)}`],
+    ["d", viz.lambdaD === null ? "-" : `0x${viz.lambdaD.toString(16)}`],
+    ["scale", viz.lambdaScale === null ? "-" : `0x${viz.lambdaScale.toString(16)}`],
+    ["L(old)", viz.lambdaOldL === null ? "-" : String(viz.lambdaOldL)],
+    ["L(new)", viz.lambdaNewL === null ? "-" : String(viz.lambdaNewL)]
+  ];
+
+  if (el.bmStateList) {
+    el.bmStateList.innerHTML = stateRows.map(([k, v]) => `
+      <div class="bm-state-item">
+        <span>${k}</span>
+        <strong>${v}</strong>
+      </div>
+    `).join("");
+  }
+
+  if (el.bmDecisionBadge) {
+    const kind = viz.bmDecisionKind || "idle";
+    el.bmDecisionBadge.className = `bm-decision ${kind}`;
+    el.bmDecisionBadge.textContent = viz.bmDecisionText || "Awaiting BM iterations.";
+  }
+
+  if (el.bmPolyC) el.bmPolyC.textContent = formatPolyVerbose(viz.lambdaC);
+  if (el.bmPolyB) el.bmPolyB.textContent = formatPolyVerbose(viz.lambdaBPoly);
+  if (el.bmPolyT) el.bmPolyT.textContent = formatPolyVerbose(viz.lambdaT);
+
+  if (el.bmTermList) {
+    const terms = viz.bmTerms || [];
+    if (!terms.length) {
+      el.bmTermList.innerHTML = `<div class="bm-term-item">No term checks recorded for this frame yet.</div>`;
+    } else {
+      el.bmTermList.innerHTML = terms.map((term, idx) => {
+        const cls = term.prod ? "nonzero" : "zero";
+        const active = idx === terms.length - 1 ? "active" : "";
+        return `
+          <div class="bm-term-item ${cls} ${active}">
+            i=${term.i} | C[i]=0x${term.Ci.toString(16)} | S${term.syndDisplayIdx}=0x${term.Si.toString(16)} | prod=0x${term.prod.toString(16)} | d=>0x${term.dAfter.toString(16)}
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  if (el.bmTimeline) {
+    const timeline = viz.bmTimeline || [];
+    if (!timeline.length) {
+      el.bmTimeline.innerHTML = `<div class="bm-time-node">Awaiting BM</div>`;
+    } else {
+      el.bmTimeline.innerHTML = timeline.map((node) => {
+        const classes = [
+          "bm-time-node",
+          node.status === "update" ? "update" : "",
+          node.status === "pass" ? "pass" : "",
+          viz.lambdaN === node.n ? "current" : ""
+        ].filter(Boolean).join(" ");
+
+        const tag = node.status === "update" ? "update" : node.status === "pass" ? "pass" : "check";
+        return `<div class="${classes}">n=${node.n} ${tag}</div>`;
+      }).join("");
+    }
+  }
+}
+
+function upsertBmTimeline(viz, n, status) {
+  if (!viz) return;
+  if (!Array.isArray(viz.bmTimeline)) {
+    viz.bmTimeline = [];
+  }
+
+  let node = viz.bmTimeline.find((entry) => entry.n === n);
+  if (!node) {
+    node = { n, status };
+    viz.bmTimeline.push(node);
+    viz.bmTimeline.sort((a, b) => a.n - b.n);
+  } else {
+    node.status = status;
+  }
+}
+
 function resetDecodeVisualization() {
   if (!state.cfg) return;
+
+  if (el.cardLambda) {
+    el.cardLambda.classList.remove("bm-flash-update", "bm-flash-pass");
+  }
 
   const rx = state.rx ? new Uint8Array(state.rx) : new Uint8Array(state.cfg.n);
   state.decodeViz = {
@@ -1236,6 +1386,13 @@ function resetDecodeVisualization() {
     lambdaC: null,
     lambdaBPoly: null,
     lambdaT: null,
+    bmDecisionKind: "idle",
+    bmDecisionText: "Awaiting BM iterations.",
+    bmTerms: [],
+    bmTimeline: [],
+    bmCurrentN: null,
+    bmCurrentUpdated: false,
+    syndromeFocus: null,
     chienPos: null,
     rootSet: new Set(),
     narrative: "Decoder initialized.",
@@ -1262,33 +1419,9 @@ function renderDecodeVisuals() {
   if (viz.lambdaD === null) {
     el.lambdaMeta.textContent = "Awaiting BM iterations.";
   } else {
-    const parts = [
-      `n=${viz.lambdaN === null ? "-" : viz.lambdaN}`,
-      `L=${viz.lambdaL}`,
-      `m=${viz.lambdaM === null ? "-" : viz.lambdaM}`,
-      `b=${viz.lambdaB === null ? "-" : `0x${viz.lambdaB.toString(16)}`}`,
-      `d=0x${viz.lambdaD.toString(16)}`,
-      `lambda_mask(low<=32)=0x${viz.lambdaMask.toString(16)}`
-    ];
-
-    if (viz.lambdaOldL !== null || viz.lambdaNewL !== null) {
-      parts.push(`L update ${viz.lambdaOldL ?? "-"} -> ${viz.lambdaNewL ?? "-"}`);
-    }
-    if (viz.lambdaScale !== null) {
-      parts.push(`scale=0x${viz.lambdaScale.toString(16)}`);
-    }
-    if (viz.lambdaC) {
-      parts.push(`C=${formatCoeffVector(viz.lambdaC)}`);
-    }
-    if (viz.lambdaBPoly) {
-      parts.push(`B=${formatCoeffVector(viz.lambdaBPoly)}`);
-    }
-    if (viz.lambdaT) {
-      parts.push(`T=${formatCoeffVector(viz.lambdaT)}`);
-    }
-
-    el.lambdaMeta.textContent = parts.join(" | ");
+    el.lambdaMeta.textContent = `Lambda visual mask (low<=32): 0x${viz.lambdaMask.toString(16)}`;
   }
+  renderBmPanel(viz);
 
   renderCodewordLane(el.chienLane, rxBits, {
     scanLsb: viz.chienPos,
@@ -1309,13 +1442,18 @@ function applyDecodeFrame(frame) {
       setDecodeStage("start");
       viz.narrative = frame.text;
       viz.chienText = "Awaiting Chien search.";
+      viz.bmDecisionKind = "idle";
+      viz.bmDecisionText = "Awaiting BM iterations.";
+      viz.bmTerms = [];
+      viz.syndromeFocus = null;
       break;
 
     case "syndrome": {
       setDecodeStage("syndrome");
       const ev = frame.event;
       viz.syndrome[ev.a] = ev.u0;
-      viz.narrative = `Syndrome pass: S${ev.a} = 0x${ev.u0.toString(16)}.`;
+      viz.syndromeFocus = ev.a - 1;
+      viz.narrative = `Syndrome pass: S${ev.a - 1} = 0x${ev.u0.toString(16)}.`;
       break;
     }
 
@@ -1324,6 +1462,7 @@ function applyDecodeFrame(frame) {
       for (const ev of frame.events) {
         viz.syndrome[ev.a] = ev.u0;
       }
+      viz.syndromeFocus = null;
       viz.narrative = frame.text;
       break;
 
@@ -1338,6 +1477,13 @@ function applyDecodeFrame(frame) {
       viz.lambdaScale = null;
       viz.lambdaOldL = null;
       viz.lambdaNewL = null;
+      viz.bmCurrentN = ev.a;
+      viz.bmCurrentUpdated = false;
+      viz.bmTerms = [];
+      viz.syndromeFocus = ev.a;
+      viz.bmDecisionKind = "checking";
+      viz.bmDecisionText = `n=${ev.a}: checking discrepancy terms for Lambda(x).`;
+      upsertBmTimeline(viz, ev.a, "checking");
       viz.narrative = frame.text;
       break;
     }
@@ -1347,6 +1493,23 @@ function applyDecodeFrame(frame) {
       const ev = frame.event;
       viz.lambdaN = ev.a;
       viz.lambdaD = frame.dAfter;
+      if (!Array.isArray(viz.bmTerms)) {
+        viz.bmTerms = [];
+      }
+      viz.bmTerms.push({
+        i: ev.b,
+        Ci: ev.u0,
+        Si: ev.u1,
+        prod: frame.prod,
+        dAfter: frame.dAfter,
+        syndDisplayIdx: frame.syndDisplayIdx
+      });
+      if (viz.bmTerms.length > 28) {
+        viz.bmTerms.shift();
+      }
+      viz.syndromeFocus = frame.syndIdx - 1;
+      viz.bmDecisionKind = "checking";
+      viz.bmDecisionText = `n=${ev.a}: term i=${ev.b} processed, current d=0x${frame.dAfter.toString(16)}.`;
       viz.narrative = frame.text;
       break;
     }
@@ -1361,6 +1524,12 @@ function applyDecodeFrame(frame) {
       viz.lambdaM = ev.u1;
       viz.lambdaB = frame.bField;
       viz.lambdaScale = frame.scale;
+      viz.bmCurrentUpdated = true;
+      viz.syndromeFocus = ev.a;
+      viz.bmDecisionKind = "update";
+      viz.bmDecisionText = `n=${ev.a}: d != 0, update Lambda(x) using scaled B(x).`;
+      upsertBmTimeline(viz, ev.a, "update");
+      pulseCard(el.cardLambda, "update");
       viz.narrative = frame.text;
       break;
     }
@@ -1378,6 +1547,19 @@ function applyDecodeFrame(frame) {
       viz.lambdaC = frame.coeffState.C;
       viz.lambdaBPoly = frame.coeffState.B;
       viz.lambdaT = frame.coeffState.T;
+      if (viz.bmCurrentUpdated) {
+        viz.bmDecisionKind = "update";
+        viz.bmDecisionText = `n=${ev.a}: polynomial updated and committed.`;
+        upsertBmTimeline(viz, ev.a, "update");
+      } else {
+        viz.bmDecisionKind = "pass";
+        viz.bmDecisionText = `n=${ev.a}: no polynomial update needed (check passed).`;
+        upsertBmTimeline(viz, ev.a, "pass");
+        pulseCard(el.cardLambda, "pass");
+      }
+      viz.bmCurrentN = ev.a;
+      viz.bmCurrentUpdated = false;
+      viz.syndromeFocus = null;
       viz.narrative = frame.text;
       break;
     }
@@ -1397,12 +1579,19 @@ function applyDecodeFrame(frame) {
         viz.lambdaBPoly = frame.coeffState.B;
         viz.lambdaT = frame.coeffState.T;
       }
+      viz.bmDecisionKind = "idle";
+      viz.bmDecisionText = "Stage mode summary. Switch to cycle mode for per-check BM decisions.";
+      viz.bmTerms = [];
+      viz.bmTimeline = [];
+      viz.bmCurrentUpdated = false;
+      viz.syndromeFocus = null;
       viz.narrative = frame.text;
       break;
     }
 
     case "chien": {
       setDecodeStage("chien");
+      viz.syndromeFocus = null;
       const ev = frame.event;
       viz.chienPos = ev.a;
       viz.chienText = `Scanning pos=${ev.a}, eval=0x${ev.u0.toString(16)}, x=0x${ev.u1.toString(16)}.`;
@@ -1419,6 +1608,7 @@ function applyDecodeFrame(frame) {
 
     case "chien_batch":
       setDecodeStage("chien");
+      viz.syndromeFocus = null;
       viz.chienPos = frame.lastPos;
       for (const pos of frame.roots) {
         viz.rootSet.add(pos);
@@ -1429,6 +1619,7 @@ function applyDecodeFrame(frame) {
 
     case "flip": {
       setDecodeStage("correction");
+      viz.syndromeFocus = null;
       const ev = frame.event;
       viz.corrected[ev.a] ^= 1;
       viz.correctedSet.add(ev.a);
@@ -1443,6 +1634,7 @@ function applyDecodeFrame(frame) {
 
     case "end":
       setDecodeStage("done");
+      viz.syndromeFocus = null;
       viz.narrative = frame.text;
       viz.chienText = `Decode complete: rc=${frame.event.a}, corrected_errs=${frame.event.b}.`;
       break;

@@ -21,7 +21,7 @@
           <p>Use the exact C BCH implementation in-browser, then watch bits move through encode, channel errors, and decode.</p>
         </div>
         <div class="hero-actions">
-          <button id="focusModeBtn" class="secondary">Focus Mode</button>
+          <button id="focusModeBtn" class="secondary">Show Configuration</button>
         </div>
       </div>
       <div id="status" class="status">Loading WASM module…</div>
@@ -190,6 +190,28 @@
           <article id="cardLambda" class="stage-card">
             <h3>Lambda Polynomial</h3>
             <div id="lambdaLane" class="bit-lane"></div>
+            <div class="bm-panel">
+              <div class="bm-state-grid" id="bmStateList"></div>
+              <div id="bmDecisionBadge" class="bm-decision idle">Awaiting BM iterations.</div>
+              <div class="bm-poly-list">
+                <div class="bm-poly-row">
+                  <span>C(x)</span>
+                  <pre id="bmPolyC">-</pre>
+                </div>
+                <div class="bm-poly-row">
+                  <span>B(x)</span>
+                  <pre id="bmPolyB">-</pre>
+                </div>
+                <div class="bm-poly-row">
+                  <span>T(x)</span>
+                  <pre id="bmPolyT">-</pre>
+                </div>
+              </div>
+              <div class="bm-section-title">Discrepancy Checks</div>
+              <div id="bmTermList" class="bm-term-list"></div>
+              <div class="bm-section-title">Iteration Timeline</div>
+              <div id="bmTimeline" class="bm-timeline"></div>
+            </div>
             <p id="lambdaMeta" class="meta">Awaiting BM iterations.</p>
           </article>
           <article id="cardChien" class="stage-card wide">
