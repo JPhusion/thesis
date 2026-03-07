@@ -1,16 +1,24 @@
 #include "bch.h"
+#include <stdlib.h>
 #include <string.h>
 
-// Build a bitmask from g[] where g[j]=1 sets bit j (degree j).
-// Requires dg <= 15 for uint16_t mask (fine for BCH(15,7,2) stage).
-static uint16_t gen_mask_from_g(const uint8_t *g, int dg) {
-    uint16_t mask = 0;
-    for (int j = 0; j <= dg; j++) {
-        if (g[j] & 1) {
-            mask |= (uint16_t)(1u << j);
+// One LFSR step for polynomial division by monic g(x) of degree dg.
+// reg[j] stores coefficient of x^j in current remainder, j in [0..dg-1].
+static void lfsr_step(const uint8_t *g, int dg, uint8_t *reg, uint8_t in_bit) {
+    const uint8_t top = reg[dg - 1] & 1u;
+
+    for (int j = dg - 1; j > 0; j--) {
+        reg[j] = reg[j - 1] & 1u;
+    }
+    reg[0] = in_bit & 1u;
+
+    if (top) {
+        for (int j = 0; j < dg; j++) {
+            if (g[j] & 1u) {
+                reg[j] ^= 1u;
+            }
         }
     }
-    return mask;
 }
 
 void bch_encode_systematic(const bch_ctx_t *bch, const uint8_t *msg, uint8_t *cw) {
@@ -25,27 +33,28 @@ void bch_encode_systematic(const bch_ctx_t *bch, const uint8_t *msg, uint8_t *cw
         cw[dg + i] = msg[i] & 1;     // msg[0] -> x^0, placed at x^dg
     }
 
-    // Compute remainder of x^dg m(x) / g(x) by streaming bits (polynomial division)
-    // We must feed bits from highest degree down to lowest: m_{k-1} ... m_0
-    uint16_t reg = 0;
-    const uint16_t g_mask = gen_mask_from_g(g, dg);
-    const uint16_t top_bit = (uint16_t)(1u << dg); // bit representing x^dg
+    if (dg <= 0) {
+        return;
+    }
+
+    // Hardware-style division:
+    // feed message bits high->low, then feed dg zeros to realize x^dg m(x) / g(x).
+    uint8_t *reg = (uint8_t *)calloc((size_t)dg, 1);
+    if (!reg) {
+        return;
+    }
 
     for (int i = k - 1; i >= 0; i--) {
-        uint16_t mbit = (uint16_t)(msg[i] & 1u);
-
-        // Multiply current remainder by x, then add next message bit
-        reg = (uint16_t)((reg << 1) | mbit);
-
-        // If degree reached dg, subtract (XOR) generator to reduce
-        if (reg & top_bit) {
-            reg ^= g_mask;
-        }
+        lfsr_step(g, dg, reg, msg[i] & 1u);
+    }
+    for (int z = 0; z < dg; z++) {
+        lfsr_step(g, dg, reg, 0u);
     }
 
-    // reg now holds remainder (degree < dg) in its low dg bits.
-    // Write it into parity positions cw[0..dg-1]
+    // reg now holds remainder coefficients (low->high degree).
     for (int j = 0; j < dg; j++) {
-        cw[j] = (uint8_t)((reg >> j) & 1u);
+        cw[j] = reg[j] & 1u;
     }
+
+    free(reg);
 }
