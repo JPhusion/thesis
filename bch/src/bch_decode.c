@@ -1,10 +1,6 @@
 #include "bch.h"
 #include <stdlib.h>
 
-void bch_compute_syndromes(const bch_ctx_t *bch, const uint8_t *rx, uint16_t *S);
-int bch_berlekamp_massey(const bch_ctx_t *bch, const uint16_t *S, uint16_t *lambda_poly, int *out_L);
-int bch_chien_search(const bch_ctx_t *bch, const uint16_t *lambda_poly, int L, int *err_pos);
-
 int bch_decode(bch_ctx_t *bch, uint8_t *rx, int *out_errs) {
     if (!bch || !rx || !out_errs) {
         return -1;

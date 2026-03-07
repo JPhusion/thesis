@@ -4,6 +4,7 @@ CFLAGS = -std=c11 -Wall -Wextra -O2 -Iinclude
 SRC = src/gf.c \
       src/bch_gen.c \
       src/bch_encode.c \
+      src/bch_trace.c \
       src/bch_syndrome.c \
       src/bch_bm.c \
       src/bch_chien.c \
@@ -38,4 +39,3 @@ test: all
 
 clean:
 	rm -f $(OBJ) build_demo build_test_gf build_test_encode build_test_decode
-

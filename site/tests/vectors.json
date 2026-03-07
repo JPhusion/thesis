@@ -1,0 +1,574 @@
+{
+  "configs": [
+    {
+      "name": "BCH(7,4,1)",
+      "m": 3,
+      "prim_poly": 11,
+      "t": 1,
+      "n": 7,
+      "k": 4,
+      "cases": [
+        {
+          "msg_msb": "0000",
+          "errors": [],
+          "cw_msb": "0000000",
+          "corrected_msb": "0000000",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0000",
+          "errors": [0],
+          "cw_msb": "0000000",
+          "corrected_msb": "0000000",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0000",
+          "errors": [1, 3],
+          "cw_msb": "0000000",
+          "corrected_msb": "0001011",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0000",
+          "errors": [0, 2, 4],
+          "cw_msb": "0000000",
+          "corrected_msb": "0011101",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 3
+        },
+        {
+          "msg_msb": "0001",
+          "errors": [],
+          "cw_msb": "0001011",
+          "corrected_msb": "0001011",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0001",
+          "errors": [0],
+          "cw_msb": "0001011",
+          "corrected_msb": "0001011",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0001",
+          "errors": [1, 3],
+          "cw_msb": "0001011",
+          "corrected_msb": "0000000",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0001",
+          "errors": [0, 2, 4],
+          "cw_msb": "0001011",
+          "corrected_msb": "0010110",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 3
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [],
+          "cw_msb": "0101100",
+          "corrected_msb": "0101100",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [0],
+          "cw_msb": "0101100",
+          "corrected_msb": "0101100",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [1, 3],
+          "cw_msb": "0101100",
+          "corrected_msb": "0100111",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [0, 2, 4],
+          "cw_msb": "0101100",
+          "corrected_msb": "0110001",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 3
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [],
+          "cw_msb": "0101100",
+          "corrected_msb": "0101100",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [0],
+          "cw_msb": "0101100",
+          "corrected_msb": "0101100",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [1, 3],
+          "cw_msb": "0101100",
+          "corrected_msb": "0100111",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0101",
+          "errors": [0, 2, 4],
+          "cw_msb": "0101100",
+          "corrected_msb": "0110001",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 3
+        },
+        {
+          "msg_msb": "1001",
+          "errors": [],
+          "cw_msb": "1001110",
+          "corrected_msb": "1001110",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "1001",
+          "errors": [0],
+          "cw_msb": "1001110",
+          "corrected_msb": "1001110",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "1001",
+          "errors": [1, 3],
+          "cw_msb": "1001110",
+          "corrected_msb": "1000101",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 2
+        },
+        {
+          "msg_msb": "1001",
+          "errors": [0, 2, 4],
+          "cw_msb": "1001110",
+          "corrected_msb": "1010011",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 3
+        }
+      ]
+    },
+    {
+      "name": "BCH(15,7,2)",
+      "m": 4,
+      "prim_poly": 19,
+      "t": 2,
+      "n": 15,
+      "k": 7,
+      "cases": [
+        {
+          "msg_msb": "0000000",
+          "errors": [],
+          "cw_msb": "000000000000000",
+          "corrected_msb": "000000000000000",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0000000",
+          "errors": [0],
+          "cw_msb": "000000000000000",
+          "corrected_msb": "000000000000000",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0000000",
+          "errors": [1, 3],
+          "cw_msb": "000000000000000",
+          "corrected_msb": "000000000000000",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0000000",
+          "errors": [0, 2, 4],
+          "cw_msb": "000000000000000",
+          "corrected_msb": "000100000011101",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 3
+        },
+        {
+          "msg_msb": "0000001",
+          "errors": [],
+          "cw_msb": "000000111010001",
+          "corrected_msb": "000000111010001",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0000001",
+          "errors": [0],
+          "cw_msb": "000000111010001",
+          "corrected_msb": "000000111010001",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0000001",
+          "errors": [1, 3],
+          "cw_msb": "000000111010001",
+          "corrected_msb": "000000111010001",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0000001",
+          "errors": [0, 2, 4],
+          "cw_msb": "000000111010001",
+          "corrected_msb": "000100111001100",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 3
+        },
+        {
+          "msg_msb": "0000101",
+          "errors": [],
+          "cw_msb": "000010100110111",
+          "corrected_msb": "000010100110111",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0000101",
+          "errors": [0],
+          "cw_msb": "000010100110111",
+          "corrected_msb": "000010100110111",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0000101",
+          "errors": [1, 3],
+          "cw_msb": "000010100110111",
+          "corrected_msb": "000010100110111",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0000101",
+          "errors": [0, 2, 4],
+          "cw_msb": "000010100110111",
+          "corrected_msb": "000110100101010",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 3
+        },
+        {
+          "msg_msb": "1100101",
+          "errors": [],
+          "cw_msb": "110010110101011",
+          "corrected_msb": "110010110101011",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "1100101",
+          "errors": [0],
+          "cw_msb": "110010110101011",
+          "corrected_msb": "110010110101011",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "1100101",
+          "errors": [1, 3],
+          "cw_msb": "110010110101011",
+          "corrected_msb": "110010110101011",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "1100101",
+          "errors": [0, 2, 4],
+          "cw_msb": "110010110101011",
+          "corrected_msb": "110110110110110",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 3
+        },
+        {
+          "msg_msb": "0011001",
+          "errors": [],
+          "cw_msb": "001100111110110",
+          "corrected_msb": "001100111110110",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "0011001",
+          "errors": [0],
+          "cw_msb": "001100111110110",
+          "corrected_msb": "001100111110110",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "0011001",
+          "errors": [1, 3],
+          "cw_msb": "001100111110110",
+          "corrected_msb": "001100111110110",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "0011001",
+          "errors": [0, 2, 4],
+          "cw_msb": "001100111110110",
+          "corrected_msb": "001000111101011",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 3
+        }
+      ]
+    },
+    {
+      "name": "BCH(31,21,2)",
+      "m": 5,
+      "prim_poly": 37,
+      "t": 2,
+      "n": 31,
+      "k": 21,
+      "cases": [
+        {
+          "msg_msb": "000000000000000000000",
+          "errors": [],
+          "cw_msb": "0000000000000000000000000000000",
+          "corrected_msb": "0000000000000000000000000000000",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "000000000000000000000",
+          "errors": [0],
+          "cw_msb": "0000000000000000000000000000000",
+          "corrected_msb": "0000000000000000000000000000000",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "000000000000000000000",
+          "errors": [1, 3],
+          "cw_msb": "0000000000000000000000000000000",
+          "corrected_msb": "0000000000000000000000000000000",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "000000000000000000000",
+          "errors": [0, 2, 4],
+          "cw_msb": "0000000000000000000000000000000",
+          "corrected_msb": "0000000000000000000000000010101",
+          "rc": -1,
+          "out_errs": 0,
+          "injected": 3
+        },
+        {
+          "msg_msb": "000000000000000000001",
+          "errors": [],
+          "cw_msb": "0000000000000000000011101101001",
+          "corrected_msb": "0000000000000000000011101101001",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "000000000000000000001",
+          "errors": [0],
+          "cw_msb": "0000000000000000000011101101001",
+          "corrected_msb": "0000000000000000000011101101001",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "000000000000000000001",
+          "errors": [1, 3],
+          "cw_msb": "0000000000000000000011101101001",
+          "corrected_msb": "0000000000000000000011101101001",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "000000000000000000001",
+          "errors": [0, 2, 4],
+          "cw_msb": "0000000000000000000011101101001",
+          "corrected_msb": "0000000000000000000011101111100",
+          "rc": -1,
+          "out_errs": 0,
+          "injected": 3
+        },
+        {
+          "msg_msb": "000000000000000000101",
+          "errors": [],
+          "cw_msb": "0000000000000000001010000011111",
+          "corrected_msb": "0000000000000000001010000011111",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "000000000000000000101",
+          "errors": [0],
+          "cw_msb": "0000000000000000001010000011111",
+          "corrected_msb": "0000000000000000001010000011111",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "000000000000000000101",
+          "errors": [1, 3],
+          "cw_msb": "0000000000000000001010000011111",
+          "corrected_msb": "0000000000000000001010000011111",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "000000000000000000101",
+          "errors": [0, 2, 4],
+          "cw_msb": "0000000000000000001010000011111",
+          "corrected_msb": "0000000000000000001010000001010",
+          "rc": -1,
+          "out_errs": 0,
+          "injected": 3
+        },
+        {
+          "msg_msb": "000000000000001100101",
+          "errors": [],
+          "cw_msb": "0000000000000011001011110011000",
+          "corrected_msb": "0000000000000011001011110011000",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "000000000000001100101",
+          "errors": [0],
+          "cw_msb": "0000000000000011001011110011000",
+          "corrected_msb": "0000000000000011001011110011000",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "000000000000001100101",
+          "errors": [1, 3],
+          "cw_msb": "0000000000000011001011110011000",
+          "corrected_msb": "0000000000000011001011110011000",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "000000000000001100101",
+          "errors": [0, 2, 4],
+          "cw_msb": "0000000000000011001011110011000",
+          "corrected_msb": "0000000000000011001011110001101",
+          "rc": -1,
+          "out_errs": 0,
+          "injected": 3
+        },
+        {
+          "msg_msb": "000001001100110011001",
+          "errors": [],
+          "cw_msb": "0000010011001100110010001011110",
+          "corrected_msb": "0000010011001100110010001011110",
+          "rc": 0,
+          "out_errs": 0,
+          "injected": 0
+        },
+        {
+          "msg_msb": "000001001100110011001",
+          "errors": [0],
+          "cw_msb": "0000010011001100110010001011110",
+          "corrected_msb": "0000010011001100110010001011110",
+          "rc": 0,
+          "out_errs": 1,
+          "injected": 1
+        },
+        {
+          "msg_msb": "000001001100110011001",
+          "errors": [1, 3],
+          "cw_msb": "0000010011001100110010001011110",
+          "corrected_msb": "0000010011001100110010001011110",
+          "rc": 0,
+          "out_errs": 2,
+          "injected": 2
+        },
+        {
+          "msg_msb": "000001001100110011001",
+          "errors": [0, 2, 4],
+          "cw_msb": "0000010011001100110010001011110",
+          "corrected_msb": "0000010011001100110010001001011",
+          "rc": -1,
+          "out_errs": 0,
+          "injected": 3
+        }
+      ]
+    }
+  ]
+}

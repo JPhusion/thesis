@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BCH Web Lab</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <main class="layout">
+    <header class="hero">
+      <h1>BCH Visual Lab</h1>
+      <p>Use the exact C BCH implementation in-browser, then watch bits move through encode, channel errors, and decode.</p>
+      <div id="status" class="status">Loading WASM module…</div>
+    </header>
+
+    <section class="panel config-panel">
+      <h2>Configuration</h2>
+      <div class="grid grid-4">
+        <label>
+          Preset
+          <select id="preset"></select>
+        </label>
+        <label class="checkbox">
+          <input id="advanced" type="checkbox">
+          <span>Advanced Config</span>
+        </label>
+        <label>
+          m
+          <input id="m" type="number" min="2" value="4">
+        </label>
+        <label>
+          t
+          <input id="t" type="number" min="1" value="2">
+        </label>
+      </div>
+      <div class="grid grid-2">
+        <label>
+          Primitive Polynomial (0b…, 0x…, or decimal)
+          <input id="prim" type="text" value="0b10011">
+        </label>
+        <div class="actions">
+          <button id="applyCfg">Apply Config</button>
+          <div id="cfgMeta" class="meta">-</div>
+        </div>
+      </div>
+      <div id="warning" class="warning hidden"></div>
+    </section>
+
+    <section class="panel flow-panel">
+      <nav class="stepper" aria-label="Workflow">
+        <button id="stepCompose" class="step-btn active" data-screen="compose">1 Compose</button>
+        <button id="stepEncode" class="step-btn" data-screen="encode" disabled>2 Encode</button>
+        <button id="stepChannel" class="step-btn" data-screen="channel" disabled>3 Channel</button>
+        <button id="stepDecode" class="step-btn" data-screen="decode" disabled>4 Decode</button>
+      </nav>
+
+      <section id="screen-compose" class="screen active">
+        <h2>Compose Message</h2>
+        <p class="subtitle">Enter your message bits (MSB-first), then animate exactly how parity is generated.</p>
+        <label>
+          Message Bits (MSB-first)
+          <input id="msgBits" type="text" placeholder="e.g. 1011001">
+        </label>
+        <div class="lane-panel">
+          <div class="lane-head">
+            <span>Message Preview</span>
+            <span id="msgHint" class="meta">-</span>
+          </div>
+          <div id="messagePreview" class="bit-lane"></div>
+        </div>
+        <div class="actions">
+          <button id="startEncodeBtn">Start Encoding</button>
+        </div>
+      </section>
+
+      <section id="screen-encode" class="screen">
+        <h2>Encode Animation</h2>
+        <p class="subtitle">Message bits stream into the LFSR. The register shifts and XOR taps generate parity.</p>
+        <div class="control-row">
+          <label>
+            Speed
+            <input id="encSpeed" type="range" min="1" max="24" value="10">
+          </label>
+          <div class="actions compact">
+            <button id="encPlayBtn">Play</button>
+            <button id="encPauseBtn">Pause</button>
+            <button id="encStepBtn">Step</button>
+          </div>
+          <div id="encFrameMeta" class="meta">Frame -</div>
+        </div>
+        <div class="encode-visual">
+          <div class="lane-panel">
+            <div class="lane-head">
+              <span>Input Stream</span>
+              <span id="encInputMeta" class="meta">-</span>
+            </div>
+            <div id="encInputLane" class="bit-lane"></div>
+          </div>
+          <div class="signal-path">
+            <div id="encPulse" class="pulse">0</div>
+            <div class="path-line"></div>
+          </div>
+          <div class="lane-panel">
+            <div class="lane-head">
+              <span>Parity Register (LFSR)</span>
+              <span id="encRegMeta" class="meta">-</span>
+            </div>
+            <div id="encRegLane" class="bit-lane register-lane"></div>
+          </div>
+        </div>
+        <div id="encNarrative" class="narrative">Run the animation to inspect each shift/XOR cycle.</div>
+        <div class="actions">
+          <button id="toChannelBtn" class="secondary">Continue To Error Injection</button>
+        </div>
+      </section>
+
+      <section id="screen-channel" class="screen">
+        <h2>Channel Error Injection</h2>
+        <p class="subtitle">Click any codeword bit to flip it. Flipped bits turn red.</p>
+        <div class="lane-panel">
+          <div class="lane-head">
+            <span>Transmitted Codeword (click to flip)</span>
+            <span id="channelMeta" class="meta">-</span>
+          </div>
+          <div id="channelLane" class="bit-lane"></div>
+        </div>
+        <div class="actions">
+          <button id="clearErrorsBtn" class="secondary">Clear Flips</button>
+          <button id="runDecodeBtn">Run Decoder</button>
+        </div>
+        <div id="errorMeta" class="meta">No injected errors.</div>
+      </section>
+
+      <section id="screen-decode" class="screen">
+        <h2>Decode Animation</h2>
+        <div class="control-row">
+          <label>
+            Mode
+            <select id="decMode">
+              <option value="stage">Stage</option>
+              <option value="cycle">Cycle</option>
+            </select>
+          </label>
+          <label>
+            Speed
+            <input id="decSpeed" type="range" min="1" max="24" value="10">
+          </label>
+          <div class="actions compact">
+            <button id="decPlayBtn">Play</button>
+            <button id="decPauseBtn">Pause</button>
+            <button id="decStepBtn">Step</button>
+            <button id="decRestartBtn" class="secondary">Restart</button>
+          </div>
+          <div id="decFrameMeta" class="meta">Frame -</div>
+        </div>
+        <div id="traceNotice" class="warning hidden"></div>
+        <div class="decode-grid">
+          <article class="stage-card">
+            <h3>Received</h3>
+            <div id="rxLane" class="bit-lane"></div>
+          </article>
+          <article class="stage-card">
+            <h3>Corrected</h3>
+            <div id="correctedLane" class="bit-lane"></div>
+          </article>
+          <article class="stage-card">
+            <h3>Syndromes</h3>
+            <div id="syndromeGrid" class="syndrome-grid"></div>
+          </article>
+          <article class="stage-card">
+            <h3>Lambda Polynomial</h3>
+            <div id="lambdaLane" class="bit-lane"></div>
+            <p id="lambdaMeta" class="meta">Awaiting BM iterations.</p>
+          </article>
+          <article class="stage-card wide">
+            <h3>Chien Search Sweep</h3>
+            <div id="chienLane" class="bit-lane"></div>
+            <p id="chienMeta" class="meta">Awaiting Chien search.</p>
+          </article>
+        </div>
+        <div id="decNarrative" class="narrative">Run decode to visualize syndrome, BM, Chien, and correction stages.</div>
+        <div class="output-grid">
+          <div><strong>Message</strong><pre id="outMsg">-</pre></div>
+          <div><strong>Codeword</strong><pre id="outCw">-</pre></div>
+          <div><strong>Received</strong><pre id="outRx">-</pre></div>
+          <div><strong>Corrected</strong><pre id="outCorrected">-</pre></div>
+        </div>
+        <div id="decodeMeta" class="meta"></div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
