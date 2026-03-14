@@ -55,6 +55,20 @@ EMCC_FLAGS=(
     -sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP32","HEAPU32"]'
 )
 
+TEST_FLAGS=(
+    -std=c11
+    -O3
+    -I"${ROOT_DIR}/bch/include"
+    -I"${ROOT_DIR}/bch/tests"
+    -sWASM=1
+    -sALLOW_MEMORY_GROWTH=1
+    -sMODULARIZE=1
+    -sEXPORT_ES6=1
+    -sEXPORT_NAME=BCHTestsModule
+    -sENVIRONMENT=web,worker,node
+    -sEXPORTED_FUNCTIONS='["_bcht_run_test_gf","_bcht_run_test_encode","_bcht_run_test_decode"]'
+)
+
 SRC=(
     "${ROOT_DIR}/bch/src/gf.c"
     "${ROOT_DIR}/bch/src/bch_gen.c"
@@ -67,6 +81,20 @@ SRC=(
     "${ROOT_DIR}/bch/src/bch_wasm.c"
 )
 
+TEST_SRC=(
+    "${ROOT_DIR}/bch/src/gf.c"
+    "${ROOT_DIR}/bch/src/bch_gen.c"
+    "${ROOT_DIR}/bch/src/bch_encode.c"
+    "${ROOT_DIR}/bch/src/bch_trace.c"
+    "${ROOT_DIR}/bch/src/bch_syndrome.c"
+    "${ROOT_DIR}/bch/src/bch_bm.c"
+    "${ROOT_DIR}/bch/src/bch_chien.c"
+    "${ROOT_DIR}/bch/src/bch_decode.c"
+    "${ROOT_DIR}/bch/tests/wasm_test_gf.c"
+    "${ROOT_DIR}/bch/tests/wasm_test_encode.c"
+    "${ROOT_DIR}/bch/tests/wasm_test_decode.c"
+)
+
 echo "Building BCH WASM module..."
 if head -n 1 "${EMCC_BIN}" | grep -Eq 'sh|bash'; then
     EMSDK_PYTHON="${EMCC_PYTHON}" "${EMCC_BIN}" "${SRC[@]}" "${EMCC_FLAGS[@]}" -o "${OUT_DIR}/bch.js"
@@ -76,3 +104,13 @@ fi
 echo "WASM build complete:"
 echo "  ${OUT_DIR}/bch.js"
 echo "  ${OUT_DIR}/bch.wasm"
+
+echo "Building BCH browser test module..."
+if head -n 1 "${EMCC_BIN}" | grep -Eq 'sh|bash'; then
+    EMSDK_PYTHON="${EMCC_PYTHON}" "${EMCC_BIN}" "${TEST_SRC[@]}" "${TEST_FLAGS[@]}" -o "${OUT_DIR}/bch_tests.js"
+else
+    "${EMCC_PYTHON}" "${EMCC_BIN}" "${TEST_SRC[@]}" "${TEST_FLAGS[@]}" -o "${OUT_DIR}/bch_tests.js"
+fi
+echo "Browser test module build complete:"
+echo "  ${OUT_DIR}/bch_tests.js"
+echo "  ${OUT_DIR}/bch_tests.wasm"
