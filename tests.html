@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BCH Verification Lab</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="test-page">
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <main class="layout test-layout">
+    <header class="hero">
+      <div class="hero-head">
+        <div>
+          <h1>BCH Verification Lab</h1>
+          <p>Run the exact native BCH test suite in the browser, or switch to an SNR sweep view for BPSK/AWGN performance.</p>
+        </div>
+        <div class="hero-actions">
+          <a href="./index.html" class="secondary hero-link">Visual Flow</a>
+          <a href="./tests.html" class="secondary hero-link active-link">Verification &amp; SNR</a>
+        </div>
+      </div>
+      <div id="testStatus" class="status">Loading WASM module…</div>
+    </header>
+
+    <section class="panel test-shell">
+      <div class="test-tabs" role="tablist" aria-label="Verification views">
+        <button id="suiteTabBtn" class="test-tab active" type="button" data-tab="suite" aria-selected="true">Native Test Suite</button>
+        <button id="snrTabBtn" class="test-tab" type="button" data-tab="snr" aria-selected="false">SNR Sweep</button>
+      </div>
+
+      <article class="test-panel tab-panel" data-tab-panel="suite">
+        <div class="panel-head">
+          <div>
+            <h2>Browser Native Test Suite</h2>
+            <p class="subtitle">Runs the exact bch/tests suite in WASM: test_gf, test_encode, and test_decode, then renders the native output into browser tables.</p>
+          </div>
+          <div class="actions compact">
+            <button id="runParityBtn">Run Native Suite</button>
+          </div>
+        </div>
+
+        <section id="suiteBanner" class="suite-banner idle">
+          <div class="suite-banner-copy">
+            <div class="suite-banner-head">
+              <span id="suiteBadge" class="suite-badge idle">Idle</span>
+              <strong id="suiteHeadline">Native suite ready</strong>
+            </div>
+            <p id="paritySummary" class="suite-summary-copy">Run the browser suite to execute the same tests as make test in bch.</p>
+          </div>
+          <div class="suite-progress-card">
+            <div class="suite-progress-head">
+              <span id="suiteProgressLabel">Awaiting run.</span>
+              <strong id="suiteProgressPct">0%</strong>
+            </div>
+            <div class="suite-progress-track">
+              <div id="suiteProgressFill" class="suite-progress-fill"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span>Total Tests</span>
+            <strong id="parityTotal">-</strong>
+          </div>
+          <div class="stat-card">
+            <span>Passed</span>
+            <strong id="parityPass">-</strong>
+          </div>
+          <div class="stat-card">
+            <span>Failed</span>
+            <strong id="parityFail">-</strong>
+          </div>
+          <div class="stat-card">
+            <span>Duration</span>
+            <strong id="parityDuration">-</strong>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Suite Results</span>
+            <span id="parityMeta" class="meta">Awaiting run.</span>
+          </div>
+          <div class="table-scroll">
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Test</th>
+                  <th>RC</th>
+                  <th>Status</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody id="parityConfigBody">
+                <tr><td colspan="4" class="empty-cell">No browser suite run yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>test_decode Breakdown</span>
+            <span class="meta">Parsed from native stdout</span>
+          </div>
+          <div id="decodeConfigCards" class="decode-config-list">
+            <div class="empty-cell">No decode breakdown yet.</div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Raw Native Output</span>
+            <span class="meta">Captured from browser WASM stdout</span>
+          </div>
+          <pre id="suiteLog">No browser suite run yet.</pre>
+        </div>
+      </article>
+
+      <article class="test-panel tab-panel hidden-panel" data-tab-panel="snr" hidden>
+        <div class="panel-head">
+          <div>
+            <h2>SNR Sweep</h2>
+          </div>
+          <div class="actions compact">
+            <button id="applySNRConfigBtn" class="secondary">Apply Config</button>
+            <button id="runSNRBtn">Run Sweep</button>
+          </div>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Preset
+            <select id="snrPreset"></select>
+          </label>
+          <label class="checkbox">
+            <input id="snrAdvanced" type="checkbox">
+            <span>Advanced Config</span>
+          </label>
+          <label>
+            m
+            <input id="snrM" type="number" min="2" value="4">
+          </label>
+          <label>
+            t
+            <input id="snrT" type="number" min="1" value="2">
+          </label>
+        </div>
+
+        <div class="grid grid-2">
+          <label>
+            Primitive Polynomial
+            <input id="snrPrim" type="text" value="0b10011">
+          </label>
+          <div class="meta-block">
+            <div class="meta-title">Active Config</div>
+            <div id="snrCfgMeta" class="meta">-</div>
+          </div>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Start Eb/N0 (dB)
+            <input id="snrStart" type="number" value="-10" step="0.1">
+          </label>
+          <label>
+            End Eb/N0 (dB)
+            <input id="snrEnd" type="number" value="10" step="0.1">
+          </label>
+          <label>
+            Step (dB)
+            <input id="snrStep" type="number" value="0.1" step="0.1" min="0.1">
+          </label>
+          <label>
+            Frames / point
+            <input id="snrFrames" type="number" value="96" min="8" step="8">
+          </label>
+        </div>
+
+        <div id="snrWarning" class="warning hidden"></div>
+        <div id="snrProgress" class="narrative">Apply a configuration, then run a sweep to populate the graphs.</div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span>Points</span>
+            <strong id="snrPointCount">-</strong>
+          </div>
+          <div class="stat-card">
+            <span>Frames</span>
+            <strong id="snrFrameCount">-</strong>
+          </div>
+          <div class="stat-card">
+            <span>Best Frame Success</span>
+            <strong id="snrBestSuccess">-</strong>
+          </div>
+          <div class="stat-card">
+            <span>Worst Raw BER</span>
+            <strong id="snrWorstRaw">-</strong>
+          </div>
+        </div>
+
+        <div class="chart-grid">
+          <section class="chart-card">
+            <div class="table-head">
+              <span>BER vs Eb/N0</span>
+              <span class="meta">log-scale y axis</span>
+            </div>
+            <canvas id="berChart" width="860" height="360"></canvas>
+            <div class="chart-legend">
+              <span><i class="legend-swatch raw"></i>Raw BER</span>
+              <span><i class="legend-swatch decoded"></i>Decoded BER</span>
+            </div>
+          </section>
+
+          <section class="chart-card">
+            <div class="table-head">
+              <span>Frame Success vs Eb/N0</span>
+              <span class="meta">higher is better</span>
+            </div>
+            <canvas id="frameChart" width="860" height="360"></canvas>
+            <div class="chart-legend">
+              <span><i class="legend-swatch success"></i>Frame success</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Sweep Samples</span>
+            <span class="meta">One row per SNR point</span>
+          </div>
+          <div class="table-scroll">
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Eb/N0</th>
+                  <th>Raw BER</th>
+                  <th>Decoded BER</th>
+                  <th>Frame Success</th>
+                  <th>Frames</th>
+                </tr>
+              </thead>
+              <tbody id="snrTableBody">
+                <tr><td colspan="5" class="empty-cell">No sweep run yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="./tests_app.js"></script>
+</body>
+</html>
