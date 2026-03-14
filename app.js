@@ -6,6 +6,8 @@ const PRESETS = [
   { name: "BCH(63,51,2)", m: 6, t: 2, prim: "0b1000011" }
 ];
 
+const BUILD_QUERY = new URL(import.meta.url).search;
+
 const TRACE = {
   STAGE_ENCODE_BEGIN: 1,
   STAGE_ENCODE_END: 2,
@@ -1778,7 +1780,7 @@ function maybeInvalidatePipelineOnMessageEdit() {
 
 async function loadWasmModule() {
   try {
-    const wasmMod = await import("./assets/bch.js");
+    const wasmMod = await import(`./assets/bch.js${BUILD_QUERY}`);
     const factory = wasmMod.default || wasmMod.BCHModule;
     if (!factory) {
       throw new Error("No BCHModule export found.");

@@ -6,6 +6,8 @@ const PRESETS = [
   { name: "BCH(63,51,2)", m: 6, t: 2, prim: "0b1000011" }
 ];
 
+const BUILD_QUERY = new URL(import.meta.url).search;
+
 const SERIES_COLORS = {
   raw: "#d96c54",
   decoded: "#0f8b73",
@@ -679,7 +681,7 @@ async function nextFrame() {
 }
 
 async function loadWasmModule() {
-  const wasmMod = await import("./assets/bch.js");
+  const wasmMod = await import(`./assets/bch.js${BUILD_QUERY}`);
   const factory = wasmMod.default || wasmMod.BCHModule;
   if (!factory) {
     throw new Error("No BCHModule export found.");
@@ -688,7 +690,7 @@ async function loadWasmModule() {
 }
 
 async function loadTestsModule() {
-  const wasmMod = await import("./assets/bch_tests.js");
+  const wasmMod = await import(`./assets/bch_tests.js${BUILD_QUERY}`);
   const factory = wasmMod.default || wasmMod.BCHTestsModule;
   if (!factory) {
     throw new Error("No BCHTestsModule export found.");
