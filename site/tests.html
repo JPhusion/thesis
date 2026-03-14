@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BCH Verification Lab</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
+
 <body class="test-page">
   <div class="bg-orbs" aria-hidden="true">
     <span class="orb orb-a"></span>
@@ -18,7 +20,7 @@
       <div class="hero-head">
         <div>
           <h1>BCH Verification Lab</h1>
-          <p>Run the exact native BCH test suite in the browser, or switch to an SNR sweep view for BPSK/AWGN performance.</p>
+          <p>Run the exact native BCH test suite in the browser, or switch to an SNR sweep view.</p>
         </div>
         <div class="hero-actions">
           <a href="./index.html" class="secondary hero-link">Visual Flow</a>
@@ -30,7 +32,8 @@
 
     <section class="panel test-shell">
       <div class="test-tabs" role="tablist" aria-label="Verification views">
-        <button id="suiteTabBtn" class="test-tab active" type="button" data-tab="suite" aria-selected="true">Native Test Suite</button>
+        <button id="suiteTabBtn" class="test-tab active" type="button" data-tab="suite" aria-selected="true">Native Test
+          Suite</button>
         <button id="snrTabBtn" class="test-tab" type="button" data-tab="snr" aria-selected="false">SNR Sweep</button>
       </div>
 
@@ -38,7 +41,8 @@
         <div class="panel-head">
           <div>
             <h2>Browser Native Test Suite</h2>
-            <p class="subtitle">Runs the exact bch/tests suite in WASM: test_gf, test_encode, and test_decode, then renders the native output into browser tables.</p>
+            <p class="subtitle">Runs the exact bch/tests suite in WASM: test_gf, test_encode, and test_decode, then
+              renders the native output into browser tables.</p>
           </div>
           <div class="actions compact">
             <button id="runParityBtn">Run Native Suite</button>
@@ -51,7 +55,8 @@
               <span id="suiteBadge" class="suite-badge idle">Idle</span>
               <strong id="suiteHeadline">Native suite ready</strong>
             </div>
-            <p id="paritySummary" class="suite-summary-copy">Run the browser suite to execute the same tests as make test in bch.</p>
+            <p id="paritySummary" class="suite-summary-copy">Run the browser suite to execute the same tests as make
+              test in bch.</p>
           </div>
           <div class="suite-progress-card">
             <div class="suite-progress-head">
@@ -99,7 +104,9 @@
                 </tr>
               </thead>
               <tbody id="parityConfigBody">
-                <tr><td colspan="4" class="empty-cell">No browser suite run yet.</td></tr>
+                <tr>
+                  <td colspan="4" class="empty-cell">No browser suite run yet.</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -248,7 +255,9 @@
                 </tr>
               </thead>
               <tbody id="snrTableBody">
-                <tr><td colspan="5" class="empty-cell">No sweep run yet.</td></tr>
+                <tr>
+                  <td colspan="5" class="empty-cell">No sweep run yet.</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -259,4 +268,5 @@
 
   <script type="module" src="./tests_app.js"></script>
 </body>
+
 </html>
