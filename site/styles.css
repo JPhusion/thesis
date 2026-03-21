@@ -407,6 +407,19 @@ button.secondary {
   scrollbar-width: thin;
 }
 
+.mask-strip {
+  border-radius: 12px;
+  border: 1px dashed #b9cce0;
+  background: linear-gradient(180deg, #f7fbff, #edf4fb);
+  color: #1f3f5b;
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  padding: 0.78rem 0.88rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
 .bit {
   width: 38px;
   height: 49px;
