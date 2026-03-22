@@ -3,238 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BCH Web Lab</title>
-  <link rel="stylesheet" href="./styles.css?v=20260314-cachefix2">
+  <title>Code Visualizers</title>
+  <link rel="stylesheet" href="./styles.css?v=20260322-product1">
 </head>
-<body>
+<body class="chooser-page">
   <div class="bg-orbs" aria-hidden="true">
     <span class="orb orb-a"></span>
     <span class="orb orb-b"></span>
     <span class="orb orb-c"></span>
   </div>
 
-  <main class="layout">
-    <header class="hero">
+  <main class="layout chooser-layout">
+    <header class="hero chooser-hero">
       <div class="hero-head">
         <div>
-          <h1>BCH Visual Lab</h1>
-          <p>Use the exact C BCH implementation in-browser, then watch bits move through encode, channel errors, and decode.</p>
+          <h1>Error-Control Visual Lab</h1>
+          <p>Choose a code family, run the exact C implementation in-browser, and watch the bits move through construction, channel damage, and decoding.</p>
         </div>
         <div class="hero-actions">
-          <a href="./tests.html" class="secondary hero-link">Verification &amp; SNR</a>
-          <button id="focusModeBtn" class="secondary">Show Configuration</button>
+          <a href="./tests.html" class="secondary hero-link">BCH Verification</a>
+          <a href="./product_tests.html" class="secondary hero-link">Product Verification</a>
         </div>
       </div>
-      <div id="status" class="status">Loading WASM module…</div>
+      <div class="status">Chooser ready.</div>
     </header>
 
-    <section class="panel config-panel">
-      <h2>Configuration</h2>
-      <div class="grid grid-4">
-        <label>
-          Preset
-          <select id="preset"></select>
-        </label>
-        <label class="checkbox">
-          <input id="advanced" type="checkbox">
-          <span>Advanced Config</span>
-        </label>
-        <label>
-          m
-          <input id="m" type="number" min="2" value="4">
-        </label>
-        <label>
-          t
-          <input id="t" type="number" min="1" value="2">
-        </label>
-      </div>
-      <div class="grid grid-2">
-        <label>
-          Primitive Polynomial (0b…, 0x…, or decimal)
-          <input id="prim" type="text" value="0b10011">
-        </label>
-        <div class="actions">
-          <button id="applyCfg">Apply Config</button>
-          <div id="cfgMeta" class="meta">-</div>
+    <section class="chooser-grid">
+      <article class="chooser-card bch-card">
+        <div class="chooser-card-head">
+          <span class="chooser-kicker">Single codeword</span>
+          <h2>BCH Visualizer</h2>
         </div>
-      </div>
-      <div id="warning" class="warning hidden"></div>
-    </section>
+        <p>Step through BCH encode, inject errors in the transmitted codeword, then watch syndromes, Berlekamp-Massey, Chien search, and correction.</p>
+        <ul class="chooser-list">
+          <li>Exact BCH C core in WASM</li>
+          <li>Bit-lane encode and decode animation</li>
+          <li>Verification suite and SNR sweep</li>
+        </ul>
+        <div class="chooser-actions">
+          <a href="./bch.html">Open BCH Visualizer</a>
+          <a href="./tests.html" class="secondary">Open BCH Verification</a>
+        </div>
+      </article>
 
-    <section class="panel flow-panel">
-      <nav class="stepper" aria-label="Workflow">
-        <button id="stepCompose" class="step-btn active" data-screen="compose">1 Compose</button>
-        <button id="stepEncode" class="step-btn" data-screen="encode" disabled>2 Encode</button>
-        <button id="stepChannel" class="step-btn" data-screen="channel" disabled>3 Channel</button>
-        <button id="stepDecode" class="step-btn" data-screen="decode" disabled>4 Decode</button>
-      </nav>
-      <div id="fxLayer" class="fx-layer" aria-hidden="true"></div>
+      <article class="chooser-card product-card">
+        <div class="chooser-card-head">
+          <span class="chooser-kicker">Matrix code</span>
+          <h2>Product Code Visualizer</h2>
+        </div>
+        <p>Build a full product-code matrix from BCH component codes, flip cells directly in the matrix, and watch iterative row/column decoding repair it.</p>
+        <ul class="chooser-list">
+          <li>Independent row and column BCH components</li>
+          <li>Full matrix encode / error injection / iterative decode</li>
+          <li>Dedicated native-suite and SNR browser page</li>
+        </ul>
+        <div class="chooser-actions">
+          <a href="./product.html">Open Product Visualizer</a>
+          <a href="./product_tests.html" class="secondary">Open Product Verification</a>
+        </div>
+      </article>
 
-      <section id="screen-compose" class="screen active">
-        <h2>Compose Message</h2>
-        <p class="subtitle">Enter your message bits (MSB-first), then animate exactly how parity is generated.</p>
-        <label>
-          Message Bits (MSB-first)
-          <input id="msgBits" type="text" placeholder="e.g. 1011001">
-        </label>
-        <div class="lane-panel">
-          <div class="lane-head">
-            <span>Message Preview</span>
-            <span id="msgHint" class="meta">-</span>
-          </div>
-          <div id="messagePreview" class="bit-lane"></div>
+      <article class="chooser-card staircase-card disabled-card">
+        <div class="chooser-card-head">
+          <span class="chooser-kicker">Next stage</span>
+          <h2>Staircase Code</h2>
         </div>
-        <div class="actions">
-          <button id="startEncodeBtn">Start Encoding</button>
+        <p>Reserved for the staircase-code visualizer. The landing page route is in place now so it can be added without disturbing BCH or product-code flows.</p>
+        <ul class="chooser-list">
+          <li>Placeholder route already live</li>
+          <li>Styled holding page</li>
+          <li>No native implementation yet</li>
+        </ul>
+        <div class="chooser-actions">
+          <a href="./staircase.html">Open Placeholder</a>
         </div>
-      </section>
-
-      <section id="screen-encode" class="screen">
-        <h2>Encode Animation</h2>
-        <p class="subtitle">Message bits stream into the LFSR. The register shifts and XOR taps generate parity.</p>
-        <div class="control-row">
-          <label>
-            Speed
-            <input id="encSpeed" type="range" min="1" max="10" value="3">
-          </label>
-          <div class="actions compact">
-            <button id="encBackBtn" class="secondary">Back</button>
-            <button id="encPlayBtn">Play</button>
-            <button id="encPauseBtn">Pause</button>
-            <button id="encStepBtn">Forward</button>
-            <button id="encResetBtn" class="secondary">Reset</button>
-          </div>
-          <div id="encFrameMeta" class="meta">Frame -</div>
-        </div>
-        <div class="encode-visual">
-          <div class="lane-panel">
-            <div class="lane-head">
-              <span>Input Stream</span>
-              <span id="encInputMeta" class="meta">-</span>
-            </div>
-            <div id="encInputLane" class="bit-lane"></div>
-          </div>
-          <div class="signal-path">
-            <div id="encPulse" class="pulse">0</div>
-            <div class="path-line"></div>
-            <div class="path-label">Shift/XOR feedback path</div>
-          </div>
-          <div class="lane-panel">
-            <div class="lane-head">
-              <span>Parity Register (LFSR)</span>
-              <span id="encRegMeta" class="meta">-</span>
-            </div>
-            <div id="encRegLane" class="bit-lane register-lane"></div>
-          </div>
-        </div>
-        <div id="encNarrative" class="narrative">Run the animation to inspect each shift/XOR cycle.</div>
-        <div class="actions">
-          <button id="toChannelBtn" class="secondary">Continue To Error Injection</button>
-        </div>
-      </section>
-
-      <section id="screen-channel" class="screen">
-        <h2>Channel Error Injection</h2>
-        <p class="subtitle">Click any codeword bit to flip it. Flipped bits turn red.</p>
-        <div class="lane-panel">
-          <div class="lane-head">
-            <span>Transmitted Codeword (click to flip)</span>
-            <span id="channelMeta" class="meta">-</span>
-          </div>
-          <div id="channelLane" class="bit-lane"></div>
-        </div>
-        <div class="actions">
-          <button id="clearErrorsBtn" class="secondary">Clear Flips</button>
-          <button id="runDecodeBtn">Run Decoder</button>
-        </div>
-        <div id="errorMeta" class="meta">No injected errors.</div>
-      </section>
-
-      <section id="screen-decode" class="screen">
-        <h2>Decode Animation</h2>
-        <div class="control-row">
-          <label>
-            Mode
-            <select id="decMode">
-              <option value="cycle" selected>Cycle</option>
-              <option value="stage">Stage</option>
-            </select>
-          </label>
-          <label>
-            Speed
-            <input id="decSpeed" type="range" min="1" max="10" value="3">
-          </label>
-          <div class="actions compact">
-            <button id="decBackBtn" class="secondary">Back</button>
-            <button id="decPlayBtn">Play</button>
-            <button id="decPauseBtn">Pause</button>
-            <button id="decStepBtn">Forward</button>
-            <button id="decRestartBtn" class="secondary">Reset</button>
-          </div>
-          <div id="decFrameMeta" class="meta">Frame -</div>
-          <div id="decStageMeta" class="meta">Stage: idle</div>
-        </div>
-        <div id="traceNotice" class="warning hidden"></div>
-        <div class="decode-grid">
-          <article id="cardRx" class="stage-card">
-            <h3>Received</h3>
-            <div id="rxLane" class="bit-lane"></div>
-          </article>
-          <article id="cardCorrected" class="stage-card">
-            <h3>Corrected</h3>
-            <div id="correctedLane" class="bit-lane"></div>
-          </article>
-          <article id="cardSyndrome" class="stage-card">
-            <h3>Syndromes</h3>
-            <div id="syndromeGrid" class="syndrome-grid"></div>
-          </article>
-          <article id="cardLambda" class="stage-card">
-            <h3>Lambda Polynomial</h3>
-            <div id="lambdaLane" class="bit-lane"></div>
-            <div class="bm-panel">
-              <div class="bm-state-grid" id="bmStateList"></div>
-              <div id="bmDecisionBadge" class="bm-decision idle">Awaiting BM iterations.</div>
-              <div class="bm-poly-list">
-                <div class="bm-poly-row">
-                  <span>C(x)</span>
-                  <pre id="bmPolyC">-</pre>
-                </div>
-                <div class="bm-poly-row">
-                  <span>B(x)</span>
-                  <pre id="bmPolyB">-</pre>
-                </div>
-                <div class="bm-poly-row">
-                  <span>T(x)</span>
-                  <pre id="bmPolyT">-</pre>
-                </div>
-              </div>
-              <div class="bm-section-title">Discrepancy Checks</div>
-              <div id="bmTermList" class="bm-term-list"></div>
-              <div class="bm-section-title">Iteration Timeline</div>
-              <div id="bmTimeline" class="bm-timeline"></div>
-            </div>
-            <p id="lambdaMeta" class="meta">Awaiting BM iterations.</p>
-          </article>
-          <article id="cardChien" class="stage-card wide">
-            <h3>Chien Search Sweep</h3>
-            <div id="chienLane" class="bit-lane"></div>
-            <p id="chienMeta" class="meta">Awaiting Chien search.</p>
-          </article>
-        </div>
-        <div id="decNarrative" class="narrative">Run decode to visualize syndrome, BM, Chien, and correction stages.</div>
-        <div id="decodeResult" class="decode-result hidden"></div>
-        <div class="output-grid">
-          <div><strong>Message</strong><pre id="outMsg">-</pre></div>
-          <div><strong>Codeword</strong><pre id="outCw">-</pre></div>
-          <div><strong>Received</strong><pre id="outRx">-</pre></div>
-          <div><strong>Corrected</strong><pre id="outCorrected">-</pre></div>
-          <div><strong>Decoded Message</strong><pre id="outDecodedMsg">-</pre></div>
-        </div>
-        <div id="decodeMeta" class="meta"></div>
-      </section>
+      </article>
     </section>
   </main>
-
-  <script type="module" src="./app.js?v=20260314-cachefix2"></script>
 </body>
 </html>

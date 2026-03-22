@@ -75,6 +75,8 @@ const el = {
 
   channelLane: document.getElementById("channelLane"),
   channelMeta: document.getElementById("channelMeta"),
+  errorMaskBits: document.getElementById("errorMaskBits"),
+  errorMaskMeta: document.getElementById("errorMaskMeta"),
   clearErrorsBtn: document.getElementById("clearErrorsBtn"),
   runDecodeBtn: document.getElementById("runDecodeBtn"),
   errorMeta: document.getElementById("errorMeta"),
@@ -693,6 +695,8 @@ function clearDownstreamState() {
 
   el.channelLane.innerHTML = "";
   el.channelMeta.textContent = "-";
+  el.errorMaskBits.textContent = "-";
+  el.errorMaskMeta.textContent = "MSB-first";
   el.errorMeta.textContent = "No injected errors.";
 
   el.encInputLane.innerHTML = "";
@@ -949,6 +953,8 @@ function renderChannelLane() {
   if (!state.cw) {
     el.channelLane.innerHTML = "";
     el.channelMeta.textContent = "-";
+    el.errorMaskBits.textContent = "-";
+    el.errorMaskMeta.textContent = "MSB-first";
     el.errorMeta.textContent = "Encode a message first.";
     return;
   }
@@ -963,6 +969,14 @@ function renderChannelLane() {
   el.channelMeta.textContent = `n=${state.cfg.n}, click any bit index to flip`;
 
   const sorted = [...state.errorPos].sort((a, b) => a - b);
+  const mask = new Uint8Array(state.cfg.n);
+  for (const pos of state.errorPos) {
+    mask[pos] = 1;
+  }
+  el.errorMaskBits.textContent = lsbToMsbString(mask);
+  el.errorMaskMeta.textContent = sorted.length
+    ? `${sorted.length} flipped bit${sorted.length === 1 ? "" : "s"}`
+    : "MSB-first";
   el.errorMeta.textContent = sorted.length
     ? `Injected error positions (LSB index): ${sorted.join(", ")}`
     : "No injected errors.";
