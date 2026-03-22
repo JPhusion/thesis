@@ -19,3 +19,7 @@ bch/build_*
 bch/build_demo
 bch/build_encode
 bch/build_test_*
+
+# Project-local product-code build outputs
+product/build_product_demo
+product/build_test_product_*
