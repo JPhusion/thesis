@@ -4,9 +4,11 @@ all: native-build
 
 native-build:
 	$(MAKE) -C bch all
+	$(MAKE) -C product all
 
 native-test:
 	$(MAKE) -C bch test
+	$(MAKE) -C product test
 
 site-build:
 	./scripts/site/build_wasm.sh
@@ -20,3 +22,4 @@ site-deploy: site-build
 
 site-test: site-build
 	node ./site/tests/wasm_parity.mjs
+	node ./site/tests/product_smoke.mjs

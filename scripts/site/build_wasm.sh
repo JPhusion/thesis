@@ -41,76 +41,114 @@ fi
 
 mkdir -p "${OUT_DIR}"
 
-EMCC_FLAGS=(
+COMMON_FLAGS=(
     -std=c11
     -O3
-    -I"${ROOT_DIR}/bch/include"
     -sWASM=1
     -sALLOW_MEMORY_GROWTH=1
     -sMODULARIZE=1
     -sEXPORT_ES6=1
-    -sEXPORT_NAME=BCHModule
     -sENVIRONMENT=web,worker,node
+)
+
+run_emcc() {
+    local out_file="$1"
+    shift
+    if head -n 1 "${EMCC_BIN}" | grep -Eq 'sh|bash'; then
+        EMSDK_PYTHON="${EMCC_PYTHON}" "${EMCC_BIN}" "$@" -o "${out_file}"
+    else
+        "${EMCC_PYTHON}" "${EMCC_BIN}" "$@" -o "${out_file}"
+    fi
+}
+
+BCH_CORE_SRC=(
+    "${ROOT_DIR}/bch/src/gf.c"
+    "${ROOT_DIR}/bch/src/bch_gen.c"
+    "${ROOT_DIR}/bch/src/bch_encode.c"
+    "${ROOT_DIR}/bch/src/bch_trace.c"
+    "${ROOT_DIR}/bch/src/bch_syndrome.c"
+    "${ROOT_DIR}/bch/src/bch_bm.c"
+    "${ROOT_DIR}/bch/src/bch_chien.c"
+    "${ROOT_DIR}/bch/src/bch_decode.c"
+)
+
+PRODUCT_CORE_SRC=(
+    "${ROOT_DIR}/bch/src/gf.c"
+    "${ROOT_DIR}/bch/src/bch_gen.c"
+    "${ROOT_DIR}/bch/src/bch_encode.c"
+    "${ROOT_DIR}/bch/src/bch_syndrome.c"
+    "${ROOT_DIR}/bch/src/bch_bm.c"
+    "${ROOT_DIR}/bch/src/bch_chien.c"
+    "${ROOT_DIR}/bch/src/bch_decode.c"
+    "${ROOT_DIR}/product/src/product.c"
+    "${ROOT_DIR}/product/src/product_trace.c"
+)
+
+BCH_FLAGS=(
+    -I"${ROOT_DIR}/bch/include"
+    -sEXPORT_NAME=BCHModule
     -sEXPORTED_FUNCTIONS='["_malloc","_free","_bchw_init","_bchw_free","_bchw_get_n","_bchw_get_k","_bchw_get_t","_bchw_get_dg","_bchw_get_g_ptr","_bchw_encode","_bchw_decode","_bchw_encode_trace","_bchw_decode_trace","_bchw_trace_ptr","_bchw_trace_len","_bchw_trace_stride","_bchw_trace_truncated","_bchw_trace_clear"]'
     -sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP32","HEAPU32"]'
 )
 
-TEST_FLAGS=(
-    -std=c11
-    -O3
+BCH_TEST_FLAGS=(
     -I"${ROOT_DIR}/bch/include"
     -I"${ROOT_DIR}/bch/tests"
-    -sWASM=1
-    -sALLOW_MEMORY_GROWTH=1
-    -sMODULARIZE=1
-    -sEXPORT_ES6=1
     -sEXPORT_NAME=BCHTestsModule
-    -sENVIRONMENT=web,worker,node
     -sEXPORTED_FUNCTIONS='["_bcht_run_test_gf","_bcht_run_test_encode","_bcht_run_test_decode"]'
 )
 
-SRC=(
-    "${ROOT_DIR}/bch/src/gf.c"
-    "${ROOT_DIR}/bch/src/bch_gen.c"
-    "${ROOT_DIR}/bch/src/bch_encode.c"
-    "${ROOT_DIR}/bch/src/bch_trace.c"
-    "${ROOT_DIR}/bch/src/bch_syndrome.c"
-    "${ROOT_DIR}/bch/src/bch_bm.c"
-    "${ROOT_DIR}/bch/src/bch_chien.c"
-    "${ROOT_DIR}/bch/src/bch_decode.c"
-    "${ROOT_DIR}/bch/src/bch_wasm.c"
+PRODUCT_FLAGS=(
+    -I"${ROOT_DIR}/bch/include"
+    -I"${ROOT_DIR}/product/include"
+    -sEXPORT_NAME=ProductModule
+    -sEXPORTED_FUNCTIONS='["_malloc","_free","_pw_init","_pw_free","_pw_get_row_n","_pw_get_row_k","_pw_get_row_t","_pw_get_row_dg","_pw_get_col_n","_pw_get_col_k","_pw_get_col_t","_pw_get_col_dg","_pw_get_info_rows","_pw_get_info_cols","_pw_get_code_rows","_pw_get_code_cols","_pw_get_msg_bits","_pw_get_cw_bits","_pw_encode","_pw_extract_message","_pw_decode","_pw_encode_trace","_pw_decode_trace","_pw_trace_ptr","_pw_trace_len","_pw_trace_stride","_pw_trace_truncated","_pw_trace_clear","_pw_decode_stats_ptr"]'
+    -sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP32","HEAPU32"]'
 )
 
-TEST_SRC=(
-    "${ROOT_DIR}/bch/src/gf.c"
-    "${ROOT_DIR}/bch/src/bch_gen.c"
-    "${ROOT_DIR}/bch/src/bch_encode.c"
-    "${ROOT_DIR}/bch/src/bch_trace.c"
-    "${ROOT_DIR}/bch/src/bch_syndrome.c"
-    "${ROOT_DIR}/bch/src/bch_bm.c"
-    "${ROOT_DIR}/bch/src/bch_chien.c"
-    "${ROOT_DIR}/bch/src/bch_decode.c"
-    "${ROOT_DIR}/bch/tests/wasm_test_gf.c"
-    "${ROOT_DIR}/bch/tests/wasm_test_encode.c"
-    "${ROOT_DIR}/bch/tests/wasm_test_decode.c"
+PRODUCT_TEST_FLAGS=(
+    -I"${ROOT_DIR}/bch/include"
+    -I"${ROOT_DIR}/product/include"
+    -I"${ROOT_DIR}/product/tests"
+    -sEXPORT_NAME=ProductTestsModule
+    -sEXPORTED_FUNCTIONS='["_pct_run_test_product_encode","_pct_run_test_product_decode"]'
 )
 
 echo "Building BCH WASM module..."
-if head -n 1 "${EMCC_BIN}" | grep -Eq 'sh|bash'; then
-    EMSDK_PYTHON="${EMCC_PYTHON}" "${EMCC_BIN}" "${SRC[@]}" "${EMCC_FLAGS[@]}" -o "${OUT_DIR}/bch.js"
-else
-    "${EMCC_PYTHON}" "${EMCC_BIN}" "${SRC[@]}" "${EMCC_FLAGS[@]}" -o "${OUT_DIR}/bch.js"
-fi
-echo "WASM build complete:"
+run_emcc "${OUT_DIR}/bch.js" \
+    "${BCH_CORE_SRC[@]}" \
+    "${ROOT_DIR}/bch/src/bch_wasm.c" \
+    "${COMMON_FLAGS[@]}" \
+    "${BCH_FLAGS[@]}"
 echo "  ${OUT_DIR}/bch.js"
 echo "  ${OUT_DIR}/bch.wasm"
 
 echo "Building BCH browser test module..."
-if head -n 1 "${EMCC_BIN}" | grep -Eq 'sh|bash'; then
-    EMSDK_PYTHON="${EMCC_PYTHON}" "${EMCC_BIN}" "${TEST_SRC[@]}" "${TEST_FLAGS[@]}" -o "${OUT_DIR}/bch_tests.js"
-else
-    "${EMCC_PYTHON}" "${EMCC_BIN}" "${TEST_SRC[@]}" "${TEST_FLAGS[@]}" -o "${OUT_DIR}/bch_tests.js"
-fi
-echo "Browser test module build complete:"
+run_emcc "${OUT_DIR}/bch_tests.js" \
+    "${BCH_CORE_SRC[@]}" \
+    "${ROOT_DIR}/bch/tests/wasm_test_gf.c" \
+    "${ROOT_DIR}/bch/tests/wasm_test_encode.c" \
+    "${ROOT_DIR}/bch/tests/wasm_test_decode.c" \
+    "${COMMON_FLAGS[@]}" \
+    "${BCH_TEST_FLAGS[@]}"
 echo "  ${OUT_DIR}/bch_tests.js"
 echo "  ${OUT_DIR}/bch_tests.wasm"
+
+echo "Building product-code WASM module..."
+run_emcc "${OUT_DIR}/product.js" \
+    "${PRODUCT_CORE_SRC[@]}" \
+    "${ROOT_DIR}/product/src/product_wasm.c" \
+    "${COMMON_FLAGS[@]}" \
+    "${PRODUCT_FLAGS[@]}"
+echo "  ${OUT_DIR}/product.js"
+echo "  ${OUT_DIR}/product.wasm"
+
+echo "Building product-code browser test module..."
+run_emcc "${OUT_DIR}/product_tests.js" \
+    "${PRODUCT_CORE_SRC[@]}" \
+    "${ROOT_DIR}/product/tests/wasm_test_product_encode.c" \
+    "${ROOT_DIR}/product/tests/wasm_test_product_decode.c" \
+    "${COMMON_FLAGS[@]}" \
+    "${PRODUCT_TEST_FLAGS[@]}"
+echo "  ${OUT_DIR}/product_tests.js"
+echo "  ${OUT_DIR}/product_tests.wasm"
