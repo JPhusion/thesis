@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product Code Verification Lab</title>
+  <link rel="stylesheet" href="./styles.css?v=20260322-product1">
+</head>
+<body class="test-page">
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <main class="layout test-layout">
+    <header class="hero">
+      <div class="hero-head">
+        <div>
+          <h1>Product Code Verification Lab</h1>
+          <p>Run the exact native product-code test suite in the browser, or switch to an SNR sweep view for iterative BCH product decoding.</p>
+        </div>
+        <div class="hero-actions">
+          <a href="./index.html" class="secondary hero-link">Code Chooser</a>
+          <a href="./product.html" class="secondary hero-link">Visual Flow</a>
+          <a href="./product_tests.html" class="secondary hero-link active-link">Verification &amp; SNR</a>
+        </div>
+      </div>
+      <div id="productTestStatus" class="status">Loading product-code WASM modules…</div>
+    </header>
+
+    <section class="panel test-shell">
+      <div class="test-tabs" role="tablist" aria-label="Product verification views">
+        <button id="productSuiteTabBtn" class="test-tab active" type="button" data-tab="suite" aria-selected="true">Native Test Suite</button>
+        <button id="productSnrTabBtn" class="test-tab" type="button" data-tab="snr" aria-selected="false">SNR Sweep</button>
+      </div>
+
+      <article class="test-panel tab-panel" data-tab-panel="suite">
+        <div class="panel-head">
+          <div>
+            <h2>Browser Native Test Suite</h2>
+            <p class="subtitle">Runs the exact product/tests suite in WASM: test_product_encode and test_product_decode, then renders the native output into browser tables.</p>
+          </div>
+          <div class="actions compact">
+            <button id="runProductSuiteBtn">Run Native Suite</button>
+          </div>
+        </div>
+
+        <section id="productSuiteBanner" class="suite-banner idle">
+          <div class="suite-banner-copy">
+            <div class="suite-banner-head">
+              <span id="productSuiteBadge" class="suite-badge idle">Idle</span>
+              <strong id="productSuiteHeadline">Native suite ready</strong>
+            </div>
+            <p id="productSuiteSummary" class="suite-summary-copy">Run the browser suite to execute the same tests as make test in product.</p>
+          </div>
+          <div class="suite-progress-card">
+            <div class="suite-progress-head">
+              <span id="productSuiteProgressLabel">Awaiting run.</span>
+              <strong id="productSuiteProgressPct">0%</strong>
+            </div>
+            <div class="suite-progress-track">
+              <div id="productSuiteProgressFill" class="suite-progress-fill"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="stat-grid">
+          <div class="stat-card"><span>Total Tests</span><strong id="productSuiteTotal">-</strong></div>
+          <div class="stat-card"><span>Passed</span><strong id="productSuitePass">-</strong></div>
+          <div class="stat-card"><span>Failed</span><strong id="productSuiteFail">-</strong></div>
+          <div class="stat-card"><span>Duration</span><strong id="productSuiteDuration">-</strong></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Suite Results</span>
+            <span id="productSuiteMeta" class="meta">Awaiting run.</span>
+          </div>
+          <div class="table-scroll">
+            <table class="results-table">
+              <thead>
+                <tr><th>Test</th><th>RC</th><th>Status</th><th>Detail</th></tr>
+              </thead>
+              <tbody id="productSuiteBody">
+                <tr><td colspan="4" class="empty-cell">No browser suite run yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>test_product_decode Breakdown</span>
+            <span class="meta">Parsed from native stdout</span>
+          </div>
+          <div id="productDecodeCards" class="decode-config-list">
+            <div class="empty-cell">No decode breakdown yet.</div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Raw Native Output</span>
+            <span class="meta">Captured from browser WASM stdout</span>
+          </div>
+          <pre id="productSuiteLog">No browser suite run yet.</pre>
+        </div>
+      </article>
+
+      <article class="test-panel tab-panel hidden-panel" data-tab-panel="snr" hidden>
+        <div class="panel-head">
+          <div>
+            <h2>SNR Sweep</h2>
+          </div>
+          <div class="actions compact">
+            <button id="applyProductSnrCfg" class="secondary">Apply Config</button>
+            <button id="runProductSnrBtn">Run Sweep</button>
+          </div>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Preset
+            <select id="productSnrPreset"></select>
+          </label>
+          <label class="checkbox">
+            <input id="productSnrAdvanced" type="checkbox">
+            <span>Advanced Config</span>
+          </label>
+          <label>
+            Max Iterations
+            <input id="productSnrMaxIters" type="number" min="1" max="16" value="3">
+          </label>
+          <div class="meta-block">
+            <div class="meta-title">Active Config</div>
+            <div id="productSnrCfgMeta" class="meta">-</div>
+          </div>
+        </div>
+
+        <div class="grid grid-3 product-dual-grid">
+          <fieldset class="product-code-box">
+            <legend>Row BCH</legend>
+            <label>
+              m
+              <input id="productSnrRowM" type="number" min="2" value="3">
+            </label>
+            <label>
+              t
+              <input id="productSnrRowT" type="number" min="1" value="1">
+            </label>
+            <label>
+              Primitive Polynomial
+              <input id="productSnrRowPrim" type="text" value="0b1011">
+            </label>
+          </fieldset>
+          <fieldset class="product-code-box">
+            <legend>Column BCH</legend>
+            <label>
+              m
+              <input id="productSnrColM" type="number" min="2" value="3">
+            </label>
+            <label>
+              t
+              <input id="productSnrColT" type="number" min="1" value="1">
+            </label>
+            <label>
+              Primitive Polynomial
+              <input id="productSnrColPrim" type="text" value="0b1011">
+            </label>
+          </fieldset>
+          <div id="productSnrWarning" class="warning hidden"></div>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Start Eb/N0 (dB)
+            <input id="productSnrStart" type="number" value="-10" step="0.1">
+          </label>
+          <label>
+            End Eb/N0 (dB)
+            <input id="productSnrEnd" type="number" value="10" step="0.1">
+          </label>
+          <label>
+            Step (dB)
+            <input id="productSnrStep" type="number" value="0.1" step="0.1" min="0.1">
+          </label>
+          <label>
+            Frames / point
+            <input id="productSnrFrames" type="number" value="96" min="8" step="8">
+          </label>
+        </div>
+
+        <div id="productSnrProgress" class="narrative">Apply a configuration, then run a sweep to populate the graphs.</div>
+
+        <div class="stat-grid">
+          <div class="stat-card"><span>Points</span><strong id="productSnrPointCount">-</strong></div>
+          <div class="stat-card"><span>Frames</span><strong id="productSnrFrameCount">-</strong></div>
+          <div class="stat-card"><span>Best Frame Success</span><strong id="productSnrBestSuccess">-</strong></div>
+          <div class="stat-card"><span>Worst Raw BER</span><strong id="productSnrWorstRaw">-</strong></div>
+        </div>
+
+        <div class="chart-grid">
+          <section class="chart-card">
+            <div class="table-head">
+              <span>BER vs Eb/N0</span>
+              <span class="meta">log-scale y axis</span>
+            </div>
+            <canvas id="productBerChart" width="860" height="360"></canvas>
+            <div class="chart-legend">
+              <span><i class="legend-swatch raw"></i>Raw BER</span>
+              <span><i class="legend-swatch decoded"></i>Decoded BER</span>
+            </div>
+          </section>
+          <section class="chart-card">
+            <div class="table-head">
+              <span>Frame Success vs Eb/N0</span>
+              <span class="meta">full matrix recovered exactly</span>
+            </div>
+            <canvas id="productFrameChart" width="860" height="360"></canvas>
+            <div class="chart-legend">
+              <span><i class="legend-swatch success"></i>Frame success</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Sweep Samples</span>
+            <span class="meta">One row per SNR point</span>
+          </div>
+          <div class="table-scroll">
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Eb/N0</th>
+                  <th>Raw BER</th>
+                  <th>Decoded BER</th>
+                  <th>Frame Success</th>
+                  <th>Frames</th>
+                </tr>
+              </thead>
+              <tbody id="productSnrTableBody">
+                <tr><td colspan="5" class="empty-cell">No sweep run yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="./product_tests_app.js?v=20260322-product1"></script>
+</body>
+</html>

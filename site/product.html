@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product Code Visualizer</title>
+  <link rel="stylesheet" href="./styles.css?v=20260322-product1">
+</head>
+<body>
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <main class="layout product-layout">
+    <header class="hero">
+      <div class="hero-head">
+        <div>
+          <h1>Product Code Visualizer</h1>
+          <p>Build a product-code matrix from BCH component codes, inject cell errors directly, and watch iterative row/column decoding repair the matrix.</p>
+        </div>
+        <div class="hero-actions">
+          <a href="./index.html" class="secondary hero-link">Code Chooser</a>
+          <a href="./product_tests.html" class="secondary hero-link">Verification &amp; SNR</a>
+          <button id="productFocusBtn" class="secondary">Show Configuration</button>
+        </div>
+      </div>
+      <div id="productStatus" class="status">Loading product-code WASM…</div>
+    </header>
+
+    <section class="panel config-panel product-config-panel">
+      <h2>Configuration</h2>
+      <div class="grid grid-4">
+        <label>
+          Preset
+          <select id="productPreset"></select>
+        </label>
+        <label class="checkbox">
+          <input id="productAdvanced" type="checkbox">
+          <span>Advanced Config</span>
+        </label>
+        <label>
+          Max Iterations
+          <input id="productMaxIters" type="number" min="1" max="16" value="3">
+        </label>
+        <div class="meta-block">
+          <div class="meta-title">Active Matrix</div>
+          <div id="productCfgMeta" class="meta">-</div>
+        </div>
+      </div>
+
+      <div class="grid grid-3 product-dual-grid">
+        <fieldset class="product-code-box">
+          <legend>Row BCH</legend>
+          <label>
+            m
+            <input id="rowM" type="number" min="2" value="3">
+          </label>
+          <label>
+            t
+            <input id="rowT" type="number" min="1" value="1">
+          </label>
+          <label>
+            Primitive Polynomial
+            <input id="rowPrim" type="text" value="0b1011">
+          </label>
+        </fieldset>
+        <fieldset class="product-code-box">
+          <legend>Column BCH</legend>
+          <label>
+            m
+            <input id="colM" type="number" min="2" value="3">
+          </label>
+          <label>
+            t
+            <input id="colT" type="number" min="1" value="1">
+          </label>
+          <label>
+            Primitive Polynomial
+            <input id="colPrim" type="text" value="0b1011">
+          </label>
+        </fieldset>
+        <div class="actions product-config-actions">
+          <button id="applyProductCfg">Apply Config</button>
+          <div id="productWarning" class="warning hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel flow-panel product-flow-panel">
+      <nav class="stepper" aria-label="Product-code workflow">
+        <button id="productStepInput" class="step-btn active" data-screen="input">1 Input</button>
+        <button id="productStepEncode" class="step-btn" data-screen="encode" disabled>2 Construct</button>
+        <button id="productStepChannel" class="step-btn" data-screen="channel" disabled>3 Errors</button>
+        <button id="productStepDecode" class="step-btn" data-screen="decode" disabled>4 Decode</button>
+      </nav>
+
+      <section id="product-screen-input" class="screen active">
+        <h2>Input Message Bits</h2>
+        <p class="subtitle">Enter exactly the number of information bits required by the current product-code matrix. The preview maps bits row-by-row into the information block.</p>
+        <label>
+          Message Bits (row-major)
+          <input id="productMsgBits" type="text" placeholder="Enter 0/1 bits for the information matrix">
+        </label>
+        <div class="lane-panel">
+          <div class="lane-head">
+            <span>Information Matrix Preview</span>
+            <span id="productMsgMeta" class="meta">-</span>
+          </div>
+          <div id="productInfoPreview" class="matrix-shell"></div>
+        </div>
+        <div class="actions">
+          <button id="productStartEncode">Construct Product Code</button>
+        </div>
+      </section>
+
+      <section id="product-screen-encode" class="screen">
+        <h2>Construct / Encode Matrix</h2>
+        <p class="subtitle">Rows are encoded first with the row BCH component. Then columns are encoded to add the vertical parity rows.</p>
+        <div class="control-row">
+          <label>
+            Speed
+            <input id="productEncSpeed" type="range" min="1" max="10" value="6">
+          </label>
+          <div class="actions compact">
+            <button id="productEncBack" class="secondary">Back</button>
+            <button id="productEncPlay">Play</button>
+            <button id="productEncPause">Pause</button>
+            <button id="productEncStep">Forward</button>
+            <button id="productEncReset" class="secondary">Reset</button>
+          </div>
+          <div id="productEncMeta" class="meta">Frame -</div>
+        </div>
+        <div class="matrix-stage-card">
+          <div class="lane-head">
+            <span>Matrix Construction</span>
+            <span id="productEncPhase" class="meta">Awaiting construction trace.</span>
+          </div>
+          <div id="productEncMatrix" class="matrix-shell matrix-stage"></div>
+        </div>
+        <div id="productEncNarrative" class="narrative">Run the construction trace to step through row and column encoding.</div>
+        <div class="actions">
+          <button id="productToChannel" class="secondary">Continue To Error Injection</button>
+        </div>
+      </section>
+
+      <section id="product-screen-channel" class="screen">
+        <h2>Error Injection</h2>
+        <p class="subtitle">Click any cell in the transmitted matrix to flip it. Flipped cells stay red until the decoder changes them.</p>
+        <div class="matrix-stage-card">
+          <div class="lane-head">
+            <span>Encoded Matrix (click to flip)</span>
+            <span id="productChannelMeta" class="meta">-</span>
+          </div>
+          <div id="productChannelMatrix" class="matrix-shell matrix-stage"></div>
+        </div>
+        <div class="product-channel-grid">
+          <div class="lane-panel">
+            <div class="lane-head">
+              <span>Error Mask Matrix</span>
+              <span class="meta">1 = flipped</span>
+            </div>
+            <div id="productMaskMatrix" class="matrix-shell mask-matrix"></div>
+          </div>
+          <div class="lane-panel">
+            <div class="lane-head">
+              <span>Flattened Error Mask</span>
+              <span id="productMaskMeta" class="meta">row-major</span>
+            </div>
+            <div id="productMaskBits" class="mask-strip">-</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="productClearErrors" class="secondary">Clear Flips</button>
+          <button id="productRunDecode">Run Iterative Decoder</button>
+        </div>
+        <div id="productErrorMeta" class="meta">No injected errors.</div>
+      </section>
+
+      <section id="product-screen-decode" class="screen">
+        <h2>Iterative Decode</h2>
+        <div class="control-row">
+          <label>
+            Speed
+            <input id="productDecSpeed" type="range" min="1" max="10" value="6">
+          </label>
+          <div class="actions compact">
+            <button id="productDecBack" class="secondary">Back</button>
+            <button id="productDecPlay">Play</button>
+            <button id="productDecPause">Pause</button>
+            <button id="productDecStep">Forward</button>
+            <button id="productDecReset" class="secondary">Reset</button>
+          </div>
+          <div id="productDecMeta" class="meta">Frame -</div>
+        </div>
+
+        <div class="product-decode-grid">
+          <article class="matrix-stage-card wide">
+            <div class="lane-head">
+              <span>Decode Matrix</span>
+              <span id="productDecodeStage" class="meta">Awaiting decoder trace.</span>
+            </div>
+            <div id="productDecodeMatrix" class="matrix-shell matrix-stage"></div>
+          </article>
+          <article class="stage-card">
+            <h3>Iteration State</h3>
+            <div id="productIterState" class="meta-stack"></div>
+            <div id="productPassSummary" class="narrative compact">Awaiting decoder trace.</div>
+          </article>
+          <article class="stage-card">
+            <h3>Decoded Message</h3>
+            <pre id="productDecodedMsg">-</pre>
+            <div id="productDecodeResult" class="decode-result hidden"></div>
+          </article>
+        </div>
+
+        <div id="productDecNarrative" class="narrative">Run decode to watch row and column passes iterate across the matrix.</div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./product_app.js?v=20260322-product1"></script>
+</body>
+</html>
