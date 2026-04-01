@@ -18,15 +18,15 @@ const PRESETS = [
     maxIters: 4
   },
   {
-    name: "PC[BCH(255,231,3) x BCH(7,4,1)]",
+    name: "PC[BCH(255,231,3) x BCH(255,231,3)]",
     row: { m: 8, t: 3, prim: "0x11d" },
-    col: { m: 3, t: 1, prim: "0b1011" },
+    col: { m: 8, t: 3, prim: "0x11d" },
     maxIters: 4
   },
   {
-    name: "PC[BCH(511,484,3) x BCH(7,4,1)]",
+    name: "PC[BCH(511,484,3) x BCH(511,484,3)]",
     row: { m: 9, t: 3, prim: "0x211" },
-    col: { m: 3, t: 1, prim: "0b1011" },
+    col: { m: 9, t: 3, prim: "0x211" },
     maxIters: 4
   }
 ];
@@ -122,6 +122,9 @@ function parsePrim(raw) {
 }
 
 function warningForMatrix(size) {
+  if (size > 50000) {
+    return "Huge warning: square product-code sweeps at this size can take a very long time in the browser.";
+  }
   if (size > 400) {
     return "Warning: large product-code matrices can make the sweep noticeably slower in the browser.";
   }
