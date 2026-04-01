@@ -16,6 +16,18 @@ const PRESETS = [
     row: { m: 4, t: 2, prim: "0b10011" },
     col: { m: 4, t: 2, prim: "0b10011" },
     maxIters: 4
+  },
+  {
+    name: "PC[BCH(255,231,3) x BCH(7,4,1)]",
+    row: { m: 8, t: 3, prim: "0x11d" },
+    col: { m: 3, t: 1, prim: "0b1011" },
+    maxIters: 4
+  },
+  {
+    name: "PC[BCH(511,484,3) x BCH(7,4,1)]",
+    row: { m: 9, t: 3, prim: "0x211" },
+    col: { m: 3, t: 1, prim: "0b1011" },
+    maxIters: 4
   }
 ];
 
@@ -245,6 +257,9 @@ function toDisplayIndices(indices) {
 
 function messageWarning(cfg) {
   if (!cfg) return "";
+  if (cfg.cwBits > 3000) {
+    return "Warning: this is a very large product-code matrix for the full visualizer. The BCH component math is exact, but the animation will be much denser than the smaller presets.";
+  }
   if (cfg.cwBits > 400) {
     return "Warning: this matrix is large. Visual playback stays exact, but browser animation will be denser.";
   }

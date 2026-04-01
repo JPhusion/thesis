@@ -16,6 +16,18 @@ const PRESETS = [
     row: { m: 4, t: 2, prim: "0b10011" },
     col: { m: 4, t: 2, prim: "0b10011" },
     maxIters: 4
+  },
+  {
+    name: "PC[BCH(255,231,3) x BCH(7,4,1)]",
+    row: { m: 8, t: 3, prim: "0x11d" },
+    col: { m: 3, t: 1, prim: "0b1011" },
+    maxIters: 4
+  },
+  {
+    name: "PC[BCH(511,484,3) x BCH(7,4,1)]",
+    row: { m: 9, t: 3, prim: "0x211" },
+    col: { m: 3, t: 1, prim: "0b1011" },
+    maxIters: 4
   }
 ];
 
@@ -723,6 +735,18 @@ function countBitErrors(a, b) {
   return errs;
 }
 
+function bpskModulateBit(bit) {
+  return bit ? -1 : 1;
+}
+
+function addAwgn(symbol, sigma, gaussian) {
+  return symbol + sigma * gaussian();
+}
+
+function hardDemodulateBpsk(sample) {
+  return sample < 0 ? 1 : 0;
+}
+
 function applySnrConfig() {
   ensureModuleReady();
   const rowM = Number.parseInt(el.snrRowM.value, 10);
@@ -895,9 +919,9 @@ async function runSnrSweep() {
         const cw = readU8(state.mod, cwPtr, cfg.cwBits);
         const rx = new Uint8Array(cfg.cwBits);
         for (let bit = 0; bit < cfg.cwBits; bit++) {
-          const symbol = cw[bit] ? -1 : 1;
-          const noisy = symbol + sigma * gaussian();
-          rx[bit] = noisy < 0 ? 1 : 0;
+          const symbol = bpskModulateBit(cw[bit]);
+          const noisy = addAwgn(symbol, sigma, gaussian);
+          rx[bit] = hardDemodulateBpsk(noisy);
           if (rx[bit] !== cw[bit]) rawErrs++;
         }
 
