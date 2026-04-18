@@ -3,34 +3,212 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Staircase Code</title>
-  <link rel="stylesheet" href="./styles.css?v=20260322-product1">
+  <title>Staircase Code Visualizer</title>
+  <link rel="stylesheet" href="./styles.css?v=20260418-stair7">
 </head>
-<body class="chooser-page">
+<body>
   <div class="bg-orbs" aria-hidden="true">
     <span class="orb orb-a"></span>
     <span class="orb orb-b"></span>
     <span class="orb orb-c"></span>
   </div>
-  <main class="layout chooser-layout">
-    <header class="hero chooser-hero">
+
+  <main class="layout product-layout">
+    <header class="hero">
       <div class="hero-head">
         <div>
-          <h1>Staircase Code</h1>
-          <p>This route is reserved for the staircase-code visualizer. BCH and product-code flows are live now; staircase is intentionally still a placeholder.</p>
+          <h1>Staircase Code Visualizer</h1>
+          <p>Build a terminated staircase code from the existing BCH component encoder, inject bit errors into the stored chain, and watch a sliding decode window lock blocks as it moves.</p>
         </div>
         <div class="hero-actions">
           <a href="./index.html" class="secondary hero-link">Code Chooser</a>
-          <a href="./product.html" class="secondary hero-link">Product Visualizer</a>
+          <a href="./bch.html" class="secondary hero-link">BCH Visualizer</a>
+          <a href="./staircase_tests.html" class="secondary hero-link">Verification &amp; SNR</a>
+          <button id="stairFocusBtn" class="secondary">Show Configuration</button>
         </div>
       </div>
-      <div class="status">Coming soon.</div>
+      <div id="stairStatus" class="status">Loading staircase-code WASM…</div>
     </header>
 
-    <section class="panel placeholder-panel">
-      <h2>Not Implemented Yet</h2>
-      <p>The page and routing are in place, but there is no staircase-code C core, browser visualizer, or verification suite in this phase.</p>
+    <section class="panel config-panel staircase-config-panel">
+      <h2>Configuration</h2>
+      <div class="grid grid-4 staircase-top-grid">
+        <label>
+          Preset
+          <select id="stairPreset"></select>
+        </label>
+        <label class="checkbox">
+          <input id="stairAdvanced" type="checkbox">
+          <span>Advanced Config</span>
+        </label>
+        <label>
+          Data Blocks
+          <input id="stairDataBlocks" type="number" min="1" max="10" value="7">
+        </label>
+        <label>
+          Decode Window
+          <input id="stairWindowSize" type="number" min="2" max="6" value="3">
+        </label>
+        <label>
+          Max Iterations
+          <input id="stairMaxIters" type="number" min="1" max="12" value="3">
+        </label>
+        <div class="meta-block">
+          <div class="meta-title">Active Staircase</div>
+          <div id="stairCfgMeta" class="meta">-</div>
+        </div>
+      </div>
+
+      <div class="grid grid-3 staircase-advanced-grid">
+        <fieldset class="product-code-box">
+          <legend>Component BCH</legend>
+          <label>
+            m
+            <input id="stairM" type="number" min="3" value="4">
+          </label>
+          <label>
+            t
+            <input id="stairT" type="number" min="1" value="1">
+          </label>
+          <label>
+            Primitive Polynomial
+            <input id="stairPrim" type="text" value="0b10011">
+          </label>
+        </fieldset>
+        <div class="lane-panel staircase-meta-panel">
+          <div class="lane-head">
+            <span>Construction Rule</span>
+            <span class="meta">terminated chain</span>
+          </div>
+          <div class="narrative compact">Each row of <code>[B(i-1)<sup>T</sup> | B(i)]</code> is a shortened systematic BCH codeword. Real payload enters blocks <code>B1...BD</code>; the last two blocks are zero-input tail blocks.</div>
+        </div>
+        <div class="actions staircase-config-actions">
+          <button id="applyStairCfg">Apply Config</button>
+          <div id="stairWarning" class="warning hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel flow-panel staircase-flow-panel">
+      <nav class="stepper" aria-label="Staircase-code workflow">
+        <button id="stairStepInput" class="step-btn active" data-screen="input">1 Input</button>
+        <button id="stairStepEncode" class="step-btn" data-screen="encode" disabled>2 Encode</button>
+        <button id="stairStepErrors" class="step-btn" data-screen="errors" disabled>3 Errors</button>
+        <button id="stairStepDecode" class="step-btn" data-screen="decode" disabled>4 Decode</button>
+      </nav>
+
+      <section id="stair-screen-input" class="screen active">
+        <h2>Input Message Bits</h2>
+        <p class="subtitle">Bits fill the information region of each real staircase block row-by-row. The two tail blocks take zero input so the encoder can flush the chain.</p>
+        <label>
+          Message Bits
+          <input id="stairMsgBits" type="text" placeholder="Enter exactly the required number of 0/1 bits" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="lane-panel">
+          <div class="lane-head">
+            <span>Information Staircase Preview</span>
+            <span id="stairMsgMeta" class="meta">-</span>
+          </div>
+          <div id="stairInfoPreview" class="staircase-scene-wrap"></div>
+        </div>
+        <div class="actions">
+          <button id="stairStartEncode">Construct Staircase</button>
+        </div>
+      </section>
+
+      <section id="stair-screen-encode" class="screen">
+        <h2>Terminated Staircase Encoding</h2>
+        <p class="subtitle">The information sections are preloaded. The animation highlights the source column in the previous block, the active row in the current block, and the parity strip being filled on the right or along the bottom depending on the staircase step.</p>
+        <div class="control-row">
+          <label>
+            Speed
+            <input id="stairEncSpeed" type="range" min="1" max="10" value="7">
+          </label>
+          <div class="actions compact">
+            <button id="stairEncBack" class="secondary">Back</button>
+            <button id="stairEncPlay">Play</button>
+            <button id="stairEncPause">Pause</button>
+            <button id="stairEncStep">Forward</button>
+            <button id="stairEncReset" class="secondary">Reset</button>
+          </div>
+          <div id="stairEncMeta" class="meta">Frame -</div>
+        </div>
+
+        <div class="staircase-encode-grid">
+          <article class="matrix-stage-card wide">
+            <div class="lane-head">
+              <span>Staircase Block Chain</span>
+              <span id="stairEncPhase" class="meta">Awaiting trace.</span>
+            </div>
+            <div id="stairEncodeScene" class="staircase-scene-wrap"></div>
+          </article>
+          <article class="stage-card staircase-detail-card">
+            <h3>Current Row Codeword</h3>
+            <div id="stairRowMeta" class="meta-stack"></div>
+            <div id="stairRowDetail" class="stair-row-detail"></div>
+          </article>
+        </div>
+
+        <div id="stairEncNarrative" class="narrative">Build the staircase to watch each terminated block pick up the previous block transpose and append new parity.</div>
+      </section>
+
+      <section id="stair-screen-errors" class="screen">
+        <h2>Inject Channel Errors</h2>
+        <p class="subtitle">Click stored bits to flip them before decoding. B0 stays fixed and cannot be changed because it is the known zero boundary block.</p>
+        <div class="control-row">
+          <div id="stairErrMeta" class="meta">No encoded staircase yet.</div>
+          <div class="actions compact">
+            <button id="stairErrClear" class="secondary">Clear Errors</button>
+            <button id="stairStartDecode">Run Decoder</button>
+          </div>
+        </div>
+        <div class="matrix-stage-card wide">
+          <div class="lane-head">
+            <span>Stored Staircase with Error Injection</span>
+            <span id="stairErrCount" class="meta">0 flipped bits</span>
+          </div>
+          <div id="stairErrorScene" class="staircase-scene-wrap"></div>
+        </div>
+      </section>
+
+      <section id="stair-screen-decode" class="screen">
+        <h2>Sliding-Window Staircase Decoding</h2>
+        <p class="subtitle">The decoder revisits adjacent block pairs inside a window, then locks the leftmost completed block before the window slides right.</p>
+        <div class="control-row">
+          <label>
+            Speed
+            <input id="stairDecSpeed" type="range" min="1" max="10" value="7">
+          </label>
+          <div class="actions compact">
+            <button id="stairDecBack" class="secondary">Back</button>
+            <button id="stairDecPlay">Play</button>
+            <button id="stairDecPause">Pause</button>
+            <button id="stairDecStep">Forward</button>
+            <button id="stairDecReset" class="secondary">Reset</button>
+          </div>
+          <div id="stairDecMeta" class="meta">Frame -</div>
+        </div>
+
+        <div class="staircase-encode-grid">
+          <article class="matrix-stage-card wide">
+            <div class="lane-head">
+              <span>Decode Window</span>
+              <span id="stairDecPhase" class="meta">Awaiting trace.</span>
+            </div>
+            <div id="stairDecodeScene" class="staircase-scene-wrap"></div>
+          </article>
+          <article class="stage-card staircase-detail-card">
+            <h3>Active Decode Pass</h3>
+            <div id="stairDecRowMeta" class="meta-stack"></div>
+            <div id="stairDecRowDetail" class="stair-row-detail"></div>
+          </article>
+        </div>
+
+        <div id="stairDecNarrative" class="narrative">Inject some errors, then run the windowed staircase decoder to see the block lock process.</div>
+      </section>
     </section>
   </main>
+
+  <script type="module" src="./staircase_app.js?v=20260418-stair7"></script>
 </body>
 </html>
