@@ -538,12 +538,7 @@ function buildDecodeFrames(cfg, initialBits, trace, corruptedMask, summary) {
         break;
       case TRACE.DECODE_FLIP: {
         const block = ev.a;
-        const targetBlock = ev.b;
-        const packedWI = ev.u0;
         const packedRC = ev.u1;
-        const row = packedRC >>> 16;
-        const col = packedRC & 0xffff;
-        const after = ev.u2 & 1;
         const flashed = [];
         while (i < trace.length && trace[i].kind === TRACE.DECODE_FLIP && trace[i].a === block) {
           const fev = trace[i];
@@ -558,21 +553,22 @@ function buildDecodeFrames(cfg, initialBits, trace, corruptedMask, summary) {
           i += 1;
         }
         i -= 1;
+        const decodedRow = activeRow != null ? activeRow : (packedRC >>> 16);
         frames.push(makeFrame(bits, {
           visible,
           corrupted: corruptedMask,
           lockedBlocks,
           activeBlock: block,
-          activeRow: row,
+          activeRow: decodedRow,
           sourceBlock: block - 1,
-          sourceCol: row,
+          sourceCol: decodedRow,
           sourceLocked,
           windowStart,
           windowEnd,
           outputBlock,
           flashed,
           phase: `Corrections applied in B${block}`,
-          narrative: `The bounded-distance decoder flipped the highlighted bits for row ${row + 1} of B${block}.`,
+          narrative: `The bounded-distance decoder flipped the highlighted bits for row ${decodedRow + 1} of B${block}.`,
           decodeMeta: { iter: currentIter + 1 }
         }));
         break;
