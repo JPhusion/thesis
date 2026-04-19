@@ -302,10 +302,22 @@ int product_decode_iterative_ex(product_ctx_t *pc, uint8_t *rx, int max_iters, p
     uint8_t *work = (uint8_t *)calloc((size_t)pc->cw_bits, 1);
     uint8_t *row = (uint8_t *)calloc((size_t)pc->code_cols, 1);
     uint8_t *col = (uint8_t *)calloc((size_t)pc->code_rows, 1);
-    if (!work || !row || !col) {
+    uint16_t *row_S = (uint16_t *)calloc((size_t)(2 * pc->row_t + 1), sizeof(uint16_t));
+    uint16_t *row_lambda = (uint16_t *)calloc((size_t)(pc->row_t + 1), sizeof(uint16_t));
+    int *row_err_pos = (int *)calloc((size_t)pc->row_t, sizeof(int));
+    uint16_t *col_S = (uint16_t *)calloc((size_t)(2 * pc->col_t + 1), sizeof(uint16_t));
+    uint16_t *col_lambda = (uint16_t *)calloc((size_t)(pc->col_t + 1), sizeof(uint16_t));
+    int *col_err_pos = (int *)calloc((size_t)pc->col_t, sizeof(int));
+    if (!work || !row || !col || !row_S || !row_lambda || !row_err_pos || !col_S || !col_lambda || !col_err_pos) {
         free(work);
         free(row);
         free(col);
+        free(row_S);
+        free(row_lambda);
+        free(row_err_pos);
+        free(col_S);
+        free(col_lambda);
+        free(col_err_pos);
         if (hooks && hooks->stage_end) {
             hooks->stage_end(user, -1, 0, 0);
         }
@@ -331,7 +343,7 @@ int product_decode_iterative_ex(product_ctx_t *pc, uint8_t *rx, int max_iters, p
             }
             memcpy(row, work + matrix_idx(pc->code_cols, r, 0), (size_t)pc->code_cols);
             int errs = -1;
-            int rc = bch_decode(&pc->row_bch, row, &errs);
+            int rc = bch_decode_with_scratch(&pc->row_bch, row, &errs, row_S, row_lambda, row_err_pos);
             int changes = 0;
             if (rc == 0) {
                 for (int c = 0; c < pc->code_cols; c++) {
@@ -364,7 +376,7 @@ int product_decode_iterative_ex(product_ctx_t *pc, uint8_t *rx, int max_iters, p
                 col[r] = work[matrix_idx(pc->code_cols, r, c)] & 1u;
             }
             int errs = -1;
-            int rc = bch_decode(&pc->col_bch, col, &errs);
+            int rc = bch_decode_with_scratch(&pc->col_bch, col, &errs, col_S, col_lambda, col_err_pos);
             int changes = 0;
             if (rc == 0) {
                 for (int r = 0; r < pc->code_rows; r++) {
@@ -403,6 +415,12 @@ int product_decode_iterative_ex(product_ctx_t *pc, uint8_t *rx, int max_iters, p
     free(work);
     free(row);
     free(col);
+    free(row_S);
+    free(row_lambda);
+    free(row_err_pos);
+    free(col_S);
+    free(col_lambda);
+    free(col_err_pos);
 
     const int success = (valid_rows == pc->code_rows && valid_cols == pc->code_cols) ? 0 : -1;
     if (hooks && hooks->stage_end) {

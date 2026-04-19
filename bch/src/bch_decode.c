@@ -1,8 +1,14 @@
 #include "bch.h"
 #include <stdlib.h>
 
-int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_hooks_t *hooks) {
-    if (!bch || !rx || !out_errs) {
+static int bch_decode_impl(bch_ctx_t *bch,
+                           uint8_t *rx,
+                           int *out_errs,
+                           uint16_t *S,
+                           uint16_t *lambda_poly,
+                           int *err_pos,
+                           const bch_decode_hooks_t *hooks) {
+    if (!bch || !rx || !out_errs || !S || !lambda_poly || !err_pos) {
         return -1;
     }
 
@@ -13,19 +19,6 @@ int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_h
 
     if (hooks && hooks->stage_begin) {
         hooks->stage_begin(user, bch->n, bch->k, bch->t, bch->dg);
-    }
-
-    uint16_t *S = (uint16_t *)calloc((size_t)(ns + 1), sizeof(uint16_t));
-    uint16_t *lambda_poly = (uint16_t *)calloc((size_t)(t + 1), sizeof(uint16_t));
-    int *err_pos = (int *)calloc((size_t)t, sizeof(int));
-    if (!S || !lambda_poly || !err_pos) {
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
-        if (hooks && hooks->stage_end) {
-            hooks->stage_end(user, -1, 0, 0u);
-        }
-        return -1;
     }
 
     bch_compute_syndromes(bch, rx, S);
@@ -46,9 +39,6 @@ int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_h
         if (hooks && hooks->stage_end) {
             hooks->stage_end(user, 0, 0, 0u);
         }
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
         return 0;
     }
 
@@ -57,9 +47,6 @@ int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_h
         if (hooks && hooks->stage_end) {
             hooks->stage_end(user, -1, 0, 0u);
         }
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
         return -1;
     }
 
@@ -68,9 +55,6 @@ int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_h
         if (hooks && hooks->stage_end) {
             hooks->stage_end(user, -1, 0, 0u);
         }
-        free(S);
-        free(lambda_poly);
-        free(err_pos);
         return -1;
     }
 
@@ -80,9 +64,6 @@ int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_h
             if (hooks && hooks->stage_end) {
                 hooks->stage_end(user, -1, found, 0u);
             }
-            free(S);
-            free(lambda_poly);
-            free(err_pos);
             return -1;
         }
         rx[p] ^= 1u;
@@ -98,9 +79,6 @@ int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_h
             if (hooks && hooks->stage_end) {
                 hooks->stage_end(user, -1, found, S[i]);
             }
-            free(S);
-            free(lambda_poly);
-            free(err_pos);
             return -1;
         }
     }
@@ -109,11 +87,53 @@ int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_h
     if (hooks && hooks->stage_end) {
         hooks->stage_end(user, 0, found, 0u);
     }
+    return 0;
+}
 
+int bch_decode_with_scratch_ex(bch_ctx_t *bch,
+                               uint8_t *rx,
+                               int *out_errs,
+                               uint16_t *S,
+                               uint16_t *lambda_poly,
+                               int *err_pos,
+                               const bch_decode_hooks_t *hooks) {
+    return bch_decode_impl(bch, rx, out_errs, S, lambda_poly, err_pos, hooks);
+}
+
+int bch_decode_with_scratch(bch_ctx_t *bch,
+                            uint8_t *rx,
+                            int *out_errs,
+                            uint16_t *S,
+                            uint16_t *lambda_poly,
+                            int *err_pos) {
+    return bch_decode_with_scratch_ex(bch, rx, out_errs, S, lambda_poly, err_pos, NULL);
+}
+
+int bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_hooks_t *hooks) {
+    if (!bch || !rx || !out_errs) {
+        return -1;
+    }
+
+    const int t = bch->t;
+    const int ns = 2 * t;
+    uint16_t *S = (uint16_t *)calloc((size_t)(ns + 1), sizeof(uint16_t));
+    uint16_t *lambda_poly = (uint16_t *)calloc((size_t)(t + 1), sizeof(uint16_t));
+    int *err_pos = (int *)calloc((size_t)t, sizeof(int));
+    if (!S || !lambda_poly || !err_pos) {
+        free(S);
+        free(lambda_poly);
+        free(err_pos);
+        if (hooks && hooks->stage_end) {
+            hooks->stage_end(hooks->user, -1, 0, 0u);
+        }
+        return -1;
+    }
+
+    const int rc = bch_decode_impl(bch, rx, out_errs, S, lambda_poly, err_pos, hooks);
     free(S);
     free(lambda_poly);
     free(err_pos);
-    return 0;
+    return rc;
 }
 
 int bch_decode(bch_ctx_t *bch, uint8_t *rx, int *out_errs) {

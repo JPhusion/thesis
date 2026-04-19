@@ -1,14 +1,26 @@
-.PHONY: all native-build native-test site-build site-serve site-deploy site-test
+.PHONY: all native-build native-test site-build site-serve site-deploy site-test product-square-plot product-square-plots thesis-seminar-plots ber-suite ber-suite-bootstrap
+
+CODE ?= all
+FRAMES ?= 500
+JOBS ?= 4
+START_DB ?= 0
+END_DB ?= 6
+STEP_DB ?= 0.1
+PLOT_VENV ?= $(CURDIR)/.venv-thesis-plots
+PLOT_PYTHON ?= $(PLOT_VENV)/bin/python
+BOOTSTRAP_PYTHON ?= /opt/homebrew/bin/python3
 
 all: native-build
 
 native-build:
 	$(MAKE) -C bch all
 	$(MAKE) -C product all
+	$(MAKE) -C staircase all
 
 native-test:
 	$(MAKE) -C bch test
 	$(MAKE) -C product test
+	$(MAKE) -C staircase test
 
 site-build:
 	./scripts/site/build_wasm.sh
@@ -23,3 +35,22 @@ site-deploy: site-build
 site-test: site-build
 	node ./site/tests/wasm_parity.mjs
 	node ./site/tests/product_smoke.mjs
+	node ./site/tests/staircase_smoke.mjs
+
+product-square-plot:
+	python3 ./scripts/product/plot_square_reference_snr.py --code $(CODE) --frames $(FRAMES) --jobs $(JOBS) --start-db $(START_DB) --end-db $(END_DB) --step-db $(STEP_DB)
+
+product-square-plots: product-square-plot
+
+$(PLOT_PYTHON):
+	$(BOOTSTRAP_PYTHON) -m venv $(PLOT_VENV)
+	$(PLOT_PYTHON) -m pip install --upgrade pip matplotlib
+
+thesis-seminar-plots: $(PLOT_PYTHON)
+	$(PLOT_PYTHON) ./scripts/thesis/generate_seminar_plots.py --start-db $(START_DB) --end-db $(END_DB) --step-db $(STEP_DB) --frames $(FRAMES) --jobs $(JOBS) --out-dir ./artifacts/thesis-seminar-plots
+
+ber-suite:
+	./scripts/wsl/run_all_ber.sh --frames $(FRAMES) --jobs $(JOBS) --start-db $(START_DB) --end-db $(END_DB) --step-db $(STEP_DB)
+
+ber-suite-bootstrap:
+	./scripts/wsl/run_all_ber.sh --bootstrap --frames $(FRAMES) --jobs $(JOBS) --start-db $(START_DB) --end-db $(END_DB) --step-db $(STEP_DB)

@@ -6,6 +6,8 @@
 *.dylib
 *.dll
 *.exe
+*.pyc
+__pycache__/
 
 # CMake-generated build directories and files
 build/
@@ -22,4 +24,20 @@ bch/build_test_*
 
 # Project-local product-code build outputs
 product/build_product_demo
+product/build_product_snr_sweep
 product/build_test_product_*
+
+# Project-local staircase-code build outputs
+staircase/build_staircase_demo
+staircase/build_staircase_snr_sweep
+staircase/build_test_staircase_*
+
+# Generated analysis artifacts
+artifacts/
+
+# Local plotting environment
+.venv-thesis-plots/
+.venv-ber-suite/
+.emcache/
+.plot-cache/
+.cache/

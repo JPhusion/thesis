@@ -3,7 +3,9 @@ const PRESETS = [
   { name: "BCH(15,7,2)", m: 4, t: 2, prim: "0b10011" },
   { name: "BCH(31,21,2)", m: 5, t: 2, prim: "0b100101" },
   { name: "BCH(31,16,3)", m: 5, t: 3, prim: "0b100101" },
-  { name: "BCH(63,51,2)", m: 6, t: 2, prim: "0b1000011" }
+  { name: "BCH(63,51,2)", m: 6, t: 2, prim: "0b1000011" },
+  { name: "BCH(255,231,3)", m: 8, t: 3, prim: "0x11d" },
+  { name: "BCH(511,484,3)", m: 9, t: 3, prim: "0x211" }
 ];
 
 const BUILD_QUERY = new URL(import.meta.url).search;

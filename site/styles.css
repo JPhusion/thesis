@@ -1545,6 +1545,28 @@ pre {
   gap: 0.32rem;
 }
 
+.matrix-shell-compact {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+}
+
+.matrix-canvas {
+  display: block;
+  max-width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(154, 188, 214, 0.42);
+  background: rgba(245, 250, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  cursor: crosshair;
+}
+
+.matrix-render-note {
+  font-size: 0.82rem;
+  color: #4d6d88;
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+}
+
 .matrix-stage {
   min-height: 180px;
 }
@@ -1672,5 +1694,328 @@ button.matrix-cell:hover {
   .matrix-cell {
     min-height: 32px;
     font-size: 0.82rem;
+  }
+}
+
+.staircase-top-grid {
+  align-items: end;
+}
+
+.staircase-config-panel {
+  max-height: min(62vh, 760px);
+  overflow: auto;
+}
+
+.staircase-config-panel.collapsed {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-16px);
+  pointer-events: none;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+}
+
+.staircase-advanced-grid {
+  margin-top: 1rem;
+  align-items: start;
+}
+
+.staircase-config-actions {
+  align-self: end;
+}
+
+.staircase-meta-panel {
+  min-height: 100%;
+}
+
+.staircase-scene-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.38rem 0.18rem 1.35rem;
+}
+
+.staircase-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  min-width: max-content;
+}
+
+.stair-pair-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.18rem;
+}
+
+.stair-block-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.28rem;
+}
+
+.stair-bit-block {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--block-cols), var(--cell-size));
+  grid-template-rows: repeat(var(--block-rows), var(--cell-size));
+  gap: 3px;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid rgba(125, 155, 186, 0.34);
+  background: linear-gradient(180deg, rgba(247, 251, 255, 0.96), rgba(234, 242, 250, 0.88));
+  box-shadow: 0 14px 30px rgba(15, 32, 53, 0.1);
+}
+
+.stair-bit-block.zero-block {
+  background: linear-gradient(180deg, rgba(243, 250, 237, 0.96), rgba(230, 242, 223, 0.88));
+}
+
+.stair-bit-block.preview {
+  box-shadow: 0 8px 18px rgba(15, 32, 53, 0.07);
+}
+
+.stair-bit-block.active {
+  box-shadow: 0 20px 48px rgba(15, 32, 53, 0.18), 0 0 0 3px rgba(55, 128, 213, 0.16);
+}
+
+.stair-bit-block.window {
+  box-shadow: 0 16px 34px rgba(15, 32, 53, 0.13), 0 0 0 2px rgba(44, 118, 205, 0.12);
+}
+
+.stair-bit-block.output {
+  box-shadow: 0 16px 34px rgba(15, 32, 53, 0.15), 0 0 0 3px rgba(46, 137, 93, 0.16);
+}
+
+.stair-bit-block.locked {
+  background: linear-gradient(180deg, rgba(237, 249, 239, 0.98), rgba(215, 238, 219, 0.92));
+  border-color: rgba(95, 160, 111, 0.38);
+}
+
+.stair-bit-block.tail {
+  filter: saturate(0.92);
+}
+
+.stair-bit-block.horizontal {
+  box-shadow: 0 18px 40px rgba(15, 32, 53, 0.12);
+}
+
+.stair-bit-block.vertical {
+  box-shadow: 0 18px 40px rgba(15, 32, 53, 0.12);
+}
+
+.stair-bit {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  font-size: clamp(0.54rem, 1.1vw, 0.86rem);
+  font-weight: 700;
+  color: #173a5e;
+  border: 1px solid rgba(86, 118, 154, 0.16);
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.stair-bit.zero {
+  background: linear-gradient(180deg, #d7ecc5, #c3dfb0);
+}
+
+.stair-bit.info {
+  background: linear-gradient(180deg, #eaf2ff, #d8e8ff);
+}
+
+.stair-bit.parity {
+  background: linear-gradient(180deg, #ffe8c8, #ffd5a7);
+}
+
+.stair-bit.blank {
+  color: transparent;
+}
+
+.stair-bit.tail-cell.info {
+  background: linear-gradient(180deg, #edf3fa, #dbe4ef);
+}
+
+.stair-bit.tail-cell.parity {
+  background: linear-gradient(180deg, #ffe6c6, #ffd9b2);
+}
+
+.stair-bit.active-row {
+  box-shadow: inset 0 0 0 2px rgba(28, 110, 212, 0.28);
+}
+
+.stair-bit.source-col {
+  box-shadow:
+    0 0 0 3px rgba(108, 143, 182, 0.16),
+    inset 0 0 0 2px rgba(74, 109, 146, 0.32);
+}
+
+.stair-bit.flashed {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 3px rgba(70, 219, 122, 0.18), inset 0 0 0 2px rgba(44, 163, 86, 0.28);
+  background-image: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.92), rgba(105, 230, 136, 0.42));
+}
+
+.stair-bit.corrupted {
+  box-shadow: 0 0 0 3px rgba(222, 99, 87, 0.14), inset 0 0 0 2px rgba(184, 64, 54, 0.28);
+  background-image: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.92), rgba(255, 133, 116, 0.3));
+}
+
+.stair-bit.injectable {
+  cursor: pointer;
+}
+
+.stair-bit.injectable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(54, 121, 196, 0.18);
+}
+
+.stair-bit.boundary-vertical {
+  margin-right: 3px;
+}
+
+.stair-bit.boundary-horizontal {
+  margin-bottom: 3px;
+}
+
+.stair-block-label-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.stair-block-label-stack.below {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.stair-block-label-stack.side {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: left;
+}
+
+.stair-block-name {
+  color: #23415c;
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.stair-tail-tag {
+  color: #6b8298;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.staircase-encode-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(260px, 1fr);
+  gap: 1rem;
+}
+
+.staircase-detail-card {
+  align-self: start;
+}
+
+.staircase-flow-panel .screen {
+  overflow: auto;
+}
+
+.stair-row-detail {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.stair-segment {
+  border: 1px solid rgba(63, 116, 173, 0.18);
+  border-radius: 16px;
+  padding: 0.75rem;
+  background: rgba(248, 252, 255, 0.78);
+}
+
+.stair-segment.source {
+  background: rgba(243, 247, 252, 0.9);
+}
+
+.stair-segment.info {
+  background: rgba(244, 248, 255, 0.86);
+}
+
+.stair-segment.parity {
+  background: rgba(255, 247, 236, 0.92);
+}
+
+.stair-segment-label {
+  margin-bottom: 0.45rem;
+  color: #35577b;
+  font-size: 0.86rem;
+}
+
+.bit-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bit-chip {
+  min-width: 1.5rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 999px;
+  text-align: center;
+  font-family: "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.84rem;
+  border: 1px solid rgba(63, 116, 173, 0.16);
+  color: #153d65;
+}
+
+.bit-chip.source {
+  background: rgba(232, 239, 248, 0.94);
+}
+
+.bit-chip.info {
+  background: rgba(226, 238, 255, 0.94);
+}
+
+.bit-chip.parity {
+  background: rgba(255, 231, 202, 0.95);
+}
+
+.bit-chip.blank {
+  color: transparent;
+}
+
+@media (max-width: 980px) {
+  .staircase-encode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stair-block-wrap {
+    gap: 0.18rem;
+  }
+
+  .stair-pair-row {
+    margin-left: 0 !important;
+  }
+
+  .stair-block-label-stack.side {
+    position: static;
+    transform: none;
+    align-self: center;
+    text-align: center;
   }
 }

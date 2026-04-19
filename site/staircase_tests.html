@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staircase Verification Lab</title>
+  <link rel="stylesheet" href="./styles.css?v=20260418-stair4">
+</head>
+<body class="test-page">
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <main class="layout test-layout">
+    <header class="hero">
+      <div class="hero-head">
+        <div>
+          <h1>Staircase Verification Lab</h1>
+          <p>Run the exact native staircase test suite in the browser, or sweep staircase performance over an AWGN channel using the same C implementation.</p>
+        </div>
+        <div class="hero-actions">
+          <a href="./index.html" class="secondary hero-link">Code Chooser</a>
+          <a href="./staircase.html" class="secondary hero-link">Visual Flow</a>
+          <a href="./staircase_tests.html" class="secondary hero-link active-link">Verification &amp; SNR</a>
+        </div>
+      </div>
+      <div id="staircaseTestStatus" class="status">Loading staircase WASM modules…</div>
+    </header>
+
+    <section class="panel test-shell">
+      <div class="test-tabs" role="tablist" aria-label="Staircase verification views">
+        <button id="staircaseSuiteTabBtn" class="test-tab active" type="button" data-tab="suite" aria-selected="true">Native Test Suite</button>
+        <button id="staircaseSnrTabBtn" class="test-tab" type="button" data-tab="snr" aria-selected="false">SNR Sweep</button>
+      </div>
+
+      <article class="test-panel tab-panel" data-tab-panel="suite">
+        <div class="panel-head">
+          <div>
+            <h2>Browser Native Test Suite</h2>
+            <p class="subtitle">Runs the exact staircase/tests suite in WASM: test_staircase_encode and test_staircase_decode, then formats the native output into readable tables.</p>
+          </div>
+          <div class="actions compact">
+            <button id="runStaircaseSuiteBtn">Run Native Suite</button>
+          </div>
+        </div>
+
+        <section id="staircaseSuiteBanner" class="suite-banner idle">
+          <div class="suite-banner-copy">
+            <div class="suite-banner-head">
+              <span id="staircaseSuiteBadge" class="suite-badge idle">Idle</span>
+              <strong id="staircaseSuiteHeadline">Native suite ready</strong>
+            </div>
+            <p id="staircaseSuiteSummary" class="suite-summary-copy">Run the browser suite to execute the same tests as make test in staircase.</p>
+          </div>
+          <div class="suite-progress-card">
+            <div class="suite-progress-head">
+              <span id="staircaseSuiteProgressLabel">Awaiting run.</span>
+              <strong id="staircaseSuiteProgressPct">0%</strong>
+            </div>
+            <div class="suite-progress-track">
+              <div id="staircaseSuiteProgressFill" class="suite-progress-fill"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="stat-grid">
+          <div class="stat-card"><span>Total Tests</span><strong id="staircaseSuiteTotal">-</strong></div>
+          <div class="stat-card"><span>Passed</span><strong id="staircaseSuitePass">-</strong></div>
+          <div class="stat-card"><span>Failed</span><strong id="staircaseSuiteFail">-</strong></div>
+          <div class="stat-card"><span>Duration</span><strong id="staircaseSuiteDuration">-</strong></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Suite Results</span>
+            <span id="staircaseSuiteMeta" class="meta">Awaiting run.</span>
+          </div>
+          <div class="table-scroll">
+            <table class="results-table">
+              <thead>
+                <tr><th>Test</th><th>RC</th><th>Status</th><th>Detail</th></tr>
+              </thead>
+              <tbody id="staircaseSuiteBody">
+                <tr><td colspan="4" class="empty-cell">No browser suite run yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Staircase Decode Breakdown</span>
+            <span class="meta">Parsed from native stdout</span>
+          </div>
+          <div id="staircaseDecodeCards" class="decode-config-list">
+            <div class="empty-cell">No decode breakdown yet.</div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Raw Native Output</span>
+            <span class="meta">Captured from browser WASM stdout</span>
+          </div>
+          <pre id="staircaseSuiteLog">No browser suite run yet.</pre>
+        </div>
+      </article>
+
+      <article class="test-panel tab-panel hidden-panel" data-tab-panel="snr" hidden>
+        <div class="panel-head">
+          <div>
+            <h2>SNR Sweep</h2>
+          </div>
+          <div class="actions compact">
+            <button id="applyStairSnrCfg" class="secondary">Apply Config</button>
+            <button id="runStairSnrBtn">Run Sweep</button>
+          </div>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Preset
+            <select id="stairSnrPreset"></select>
+          </label>
+          <label class="checkbox">
+            <input id="stairSnrAdvanced" type="checkbox">
+            <span>Advanced Config</span>
+          </label>
+          <label>
+            Data Blocks
+            <input id="stairSnrDataBlocks" type="number" min="1" max="10" value="7">
+          </label>
+          <div class="meta-block">
+            <div class="meta-title">Active Config</div>
+            <div id="stairSnrCfgMeta" class="meta">-</div>
+          </div>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Decode Window
+            <input id="stairSnrWindow" type="number" min="2" max="6" value="3">
+          </label>
+          <label>
+            Max Iterations
+            <input id="stairSnrMaxIters" type="number" min="1" max="12" value="3">
+          </label>
+          <label>
+            m
+            <input id="stairSnrM" type="number" min="3" value="4">
+          </label>
+          <label>
+            t
+            <input id="stairSnrT" type="number" min="1" value="1">
+          </label>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Primitive Polynomial
+            <input id="stairSnrPrim" type="text" value="0b10011">
+          </label>
+          <label>
+            Start Eb/N0 (dB)
+            <input id="stairSnrStart" type="number" value="0" step="0.1">
+          </label>
+          <label>
+            End Eb/N0 (dB)
+            <input id="stairSnrEnd" type="number" value="6" step="0.1">
+          </label>
+          <label>
+            Step (dB)
+            <input id="stairSnrStep" type="number" value="0.1" step="0.1" min="0.1">
+          </label>
+        </div>
+
+        <div class="grid grid-4">
+          <label>
+            Frames / point
+            <input id="stairSnrFrames" type="number" value="96" min="8" step="8">
+          </label>
+          <div id="stairSnrWarning" class="warning hidden"></div>
+        </div>
+
+        <div id="stairSnrProgress" class="narrative">Apply a configuration, then run a sweep to populate the graphs.</div>
+
+        <div class="stat-grid">
+          <div class="stat-card"><span>Points</span><strong id="stairSnrPointCount">-</strong></div>
+          <div class="stat-card"><span>Frames</span><strong id="stairSnrFrameCount">-</strong></div>
+          <div class="stat-card"><span>Best Frame Success</span><strong id="stairSnrBestSuccess">-</strong></div>
+          <div class="stat-card"><span>Worst Raw BER</span><strong id="stairSnrWorstRaw">-</strong></div>
+        </div>
+
+        <div class="chart-grid">
+          <section class="chart-card">
+            <div class="table-head">
+              <span>BER vs Eb/N0</span>
+              <span class="meta">stored-bit stream, log-scale y axis</span>
+            </div>
+            <canvas id="stairBerChart" width="860" height="360"></canvas>
+            <div class="chart-legend">
+              <span><i class="legend-swatch raw"></i>Raw BER</span>
+              <span><i class="legend-swatch decoded"></i>Decoded BER</span>
+            </div>
+          </section>
+          <section class="chart-card">
+            <div class="table-head">
+              <span>Frame Success vs Eb/N0</span>
+              <span class="meta">stored staircase recovered exactly</span>
+            </div>
+            <canvas id="stairFrameChart" width="860" height="360"></canvas>
+            <div class="chart-legend">
+              <span><i class="legend-swatch success"></i>Frame success</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Sweep Samples</span>
+            <span class="meta">One row per SNR point</span>
+          </div>
+          <div class="table-scroll">
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Eb/N0</th>
+                  <th>Raw BER</th>
+                  <th>Decoded BER</th>
+                  <th>Frame Success</th>
+                  <th>Frames</th>
+                </tr>
+              </thead>
+              <tbody id="stairSnrTableBody">
+                <tr><td colspan="5" class="empty-cell">No sweep run yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="./staircase_tests_app.js?v=20260418-stair4"></script>
+</body>
+</html>

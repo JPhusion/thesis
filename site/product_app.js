@@ -16,12 +16,28 @@ const PRESETS = [
     row: { m: 4, t: 2, prim: "0b10011" },
     col: { m: 4, t: 2, prim: "0b10011" },
     maxIters: 4
+  },
+  {
+    name: "PC[BCH(255,231,3) x BCH(255,231,3)]",
+    row: { m: 8, t: 3, prim: "0x11d" },
+    col: { m: 8, t: 3, prim: "0x11d" },
+    maxIters: 4
+  },
+  {
+    name: "PC[BCH(511,484,3) x BCH(511,484,3)]",
+    row: { m: 9, t: 3, prim: "0x211" },
+    col: { m: 9, t: 3, prim: "0x211" },
+    maxIters: 4
   }
 ];
 
 const BUILD_QUERY = new URL(import.meta.url).search;
 const MAX_ANIM_SPEED = 10;
 const DEFAULT_ANIM_SPEED = MAX_ANIM_SPEED;
+const COMPACT_MATRIX_THRESHOLD = 1600;
+const SUMMARY_TRACE_THRESHOLD = 10000;
+const FLAT_MASK_PREVIEW_LIMIT = 256;
+const MESSAGE_PREVIEW_LIMIT = 24;
 
 const TRACE = {
   STAGE_ENCODE_BEGIN: 1,
@@ -245,6 +261,12 @@ function toDisplayIndices(indices) {
 
 function messageWarning(cfg) {
   if (!cfg) return "";
+  if (cfg.cwBits > 50000) {
+    return "Warning: this square matrix is extremely large. The browser will switch to compact full-matrix rendering and summarized animation so the page stays usable.";
+  }
+  if (cfg.cwBits > 3000) {
+    return "Warning: this is a very large product-code matrix. The BCH component math is exact, but the visualizer will use compact rendering and denser playback.";
+  }
   if (cfg.cwBits > 400) {
     return "Warning: this matrix is large. Visual playback stays exact, but browser animation will be denser.";
   }
@@ -252,6 +274,102 @@ function messageWarning(cfg) {
     return "Warning: larger matrices can make the animation busy. The decoder still uses the exact C implementation.";
   }
   return "";
+}
+
+function useCompactMatrix(rows, cols) {
+  return rows * cols > COMPACT_MATRIX_THRESHOLD || rows > 40 || cols > 40;
+}
+
+function useSummarizedTrace(cfg) {
+  return Boolean(cfg && cfg.cwBits > SUMMARY_TRACE_THRESHOLD);
+}
+
+function matrixCellColor(r, c, value, options) {
+  const index = idx(options.cols, r, c);
+  let color = "rgba(255, 255, 255, 0.9)";
+  if (options.cfg) {
+    if (r < options.cfg.infoRows && c < options.cfg.infoCols) color = "rgba(217, 240, 232, 0.98)";
+    else if (r < options.cfg.infoRows) color = "rgba(227, 238, 255, 0.98)";
+    else color = "rgba(247, 229, 208, 0.98)";
+  }
+  if (value == null) color = "rgba(240, 246, 252, 0.72)";
+  if (options.reference && value != null && options.reference[index] != null && value !== options.reference[index]) {
+    color = "rgba(255, 125, 138, 0.98)";
+  }
+  if (options.maskValues && options.maskValues[index]) {
+    color = "rgba(236, 82, 96, 0.98)";
+  }
+  if (options.changedSet.has(index)) {
+    color = "rgba(104, 216, 137, 0.98)";
+  }
+  if (options.activeRow === r || options.activeCol === c) {
+    color = "rgba(95, 177, 240, 0.98)";
+  }
+  return color;
+}
+
+function renderMatrixCanvas(container, values, rows, cols, options = {}) {
+  container.innerHTML = "";
+  container.classList.add("matrix-shell-compact");
+  container.classList.toggle("clickable-matrix", typeof options.onCellClick === "function");
+  const canvas = document.createElement("canvas");
+  canvas.className = "matrix-canvas";
+  canvas.style.cursor = typeof options.onCellClick === "function" ? "crosshair" : "default";
+  const note = document.createElement("div");
+  note.className = "matrix-render-note";
+  note.textContent = `${rows}x${cols} compact full-matrix view`;
+
+  const rect = container.getBoundingClientRect();
+  const cssWidth = Math.max(280, Math.min(920, Math.floor(rect.width) || 720));
+  const cssHeight = Math.max(180, Math.min(920, Math.round(cssWidth * (rows / cols))));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+  canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  const changedSet = new Set(options.changed || []);
+  const cellW = cssWidth / cols;
+  const cellH = cssHeight / rows;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const index = idx(cols, r, c);
+      ctx.fillStyle = matrixCellColor(r, c, values[index], {
+        ...options,
+        changedSet,
+        cols
+      });
+      ctx.fillRect(c * cellW, r * cellH, Math.ceil(cellW), Math.ceil(cellH));
+    }
+  }
+
+  if (cellW >= 12 && cellH >= 12) {
+    ctx.font = `${Math.max(9, Math.min(cellW, cellH) * 0.48)}px "IBM Plex Mono", monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const value = values[idx(cols, r, c)];
+        if (value == null) continue;
+        ctx.fillStyle = "#163b59";
+        ctx.fillText(String(value), c * cellW + cellW / 2, r * cellH + cellH / 2);
+      }
+    }
+  }
+
+  if (typeof options.onCellClick === "function") {
+    canvas.addEventListener("click", (event) => {
+      const canvasRect = canvas.getBoundingClientRect();
+      const col = Math.max(0, Math.min(cols - 1, Math.floor(((event.clientX - canvasRect.left) / canvasRect.width) * cols)));
+      const row = Math.max(0, Math.min(rows - 1, Math.floor(((event.clientY - canvasRect.top) / canvasRect.height) * rows)));
+      options.onCellClick(idx(cols, row, col));
+    });
+  }
+
+  container.append(canvas, note);
 }
 
 function speedToDelay(value) {
@@ -362,6 +480,11 @@ function buildMetaRows(entries) {
 
 function renderMatrix(container, values, rows, cols, options = {}) {
   if (!container) return;
+  if (useCompactMatrix(rows, cols)) {
+    renderMatrixCanvas(container, values, rows, cols, options);
+    return;
+  }
+  container.classList.remove("matrix-shell-compact");
   const activeRow = options.activeRow ?? null;
   const activeCol = options.activeCol ?? null;
   const changed = new Set(options.changed || []);
@@ -460,7 +583,74 @@ function pushEncodeFrame(frames, matrix, payload) {
   });
 }
 
+function buildEncodeFramesFromCodeword(cw) {
+  const frames = [];
+  const matrix = new Array(state.cfg.cwBits).fill(null);
+
+  if (state.message) {
+    for (let r = 0; r < state.cfg.infoRows; r++) {
+      for (let c = 0; c < state.cfg.infoCols; c++) {
+        const internalRow = state.cfg.colDg + r;
+        const internalCol = state.cfg.rowDg + c;
+        matrix[idx(state.cfg.codeCols, internalRow, internalCol)] = state.message[idx(state.cfg.infoCols, r, c)] & 1;
+      }
+    }
+  }
+
+  pushEncodeFrame(frames, matrix, {
+    narrative: "The information block is already placed. Large matrices use a summarized construction view so the browser can still show the full square matrix cleanly.",
+    phase: "Information block loaded",
+    meta: "Frame 0"
+  });
+
+  for (let r = 0; r < state.cfg.infoRows; r++) {
+    const internalRow = state.cfg.colDg + r;
+    const displayRow = internalRowToDisplay(internalRow);
+    const changed = [];
+    for (let c = 0; c < state.cfg.rowDg; c++) {
+      const index = idx(state.cfg.codeCols, internalRow, c);
+      matrix[index] = cw[index] & 1;
+      changed.push(internalIndexToDisplay(index));
+    }
+    pushEncodeFrame(frames, matrix, {
+      activeRow: displayRow,
+      changed,
+      narrative: `Row ${displayRow} parity cells were appended on the right side in one summarized step.`,
+      phase: "Row encoding",
+      meta: `Row ${displayRow}`
+    });
+  }
+
+  for (let c = 0; c < state.cfg.codeCols; c++) {
+    const displayCol = internalColToDisplay(c);
+    const changed = [];
+    for (let r = 0; r < state.cfg.colDg; r++) {
+      const index = idx(state.cfg.codeCols, r, c);
+      matrix[index] = cw[index] & 1;
+      changed.push(internalIndexToDisplay(index));
+    }
+    pushEncodeFrame(frames, matrix, {
+      activeCol: displayCol,
+      changed,
+      narrative: `Column ${displayCol} parity cells were appended underneath in one summarized step.`,
+      phase: "Column encoding",
+      meta: `Column ${displayCol}`
+    });
+  }
+
+  pushEncodeFrame(frames, matrix, {
+    narrative: "Product-code construction complete. The full transmitted matrix is now ready for channel errors.",
+    phase: "Encode complete",
+    meta: "Final matrix"
+  });
+
+  return frames;
+}
+
 function buildEncodeFrames(events) {
+  if (useSummarizedTrace(state.cfg)) {
+    return buildEncodeFramesFromCodeword(state.cw);
+  }
   const frames = [];
   const matrix = new Array(state.cfg.cwBits).fill(null);
 
@@ -574,6 +764,7 @@ function pushDecodeFrame(frames, matrix, payload) {
 function buildDecodeFrames(events, rxStart) {
   const frames = [];
   const matrix = Array.from(rxStart);
+  const compact = useSummarizedTrace(state.cfg);
   pushDecodeFrame(frames, matrix, {
     phase: "Received matrix",
     detail: "Injected channel errors are shown in red.",
@@ -591,6 +782,9 @@ function buildDecodeFrames(events, rxStart) {
         });
         break;
       case TRACE.ROW_PASS_BEGIN:
+        if (compact) {
+          break;
+        }
         pushDecodeFrame(frames, matrix, {
           iteration: ev.a + 1,
           activeRow: internalRowToDisplay(ev.b),
@@ -622,6 +816,9 @@ function buildDecodeFrames(events, rxStart) {
         const rc = toSigned32(ev.u0);
         const errs = toSigned32(ev.u1);
         const changes = toSigned32(ev.u2);
+        if (compact && rc === 0 && changes === 0) {
+          break;
+        }
         pushDecodeFrame(frames, matrix, {
           iteration,
           activeRow: row,
@@ -636,6 +833,9 @@ function buildDecodeFrames(events, rxStart) {
         break;
       }
       case TRACE.COL_PASS_BEGIN:
+        if (compact) {
+          break;
+        }
         pushDecodeFrame(frames, matrix, {
           iteration: ev.a + 1,
           activeCol: internalColToDisplay(ev.b),
@@ -667,6 +867,9 @@ function buildDecodeFrames(events, rxStart) {
         const rc = toSigned32(ev.u0);
         const errs = toSigned32(ev.u1);
         const changes = toSigned32(ev.u2);
+        if (compact && rc === 0 && changes === 0) {
+          break;
+        }
         pushDecodeFrame(frames, matrix, {
           iteration,
           activeCol: col,
@@ -811,7 +1014,7 @@ function renderChannel() {
   renderMatrix(el.maskMatrix, displayMask, state.cfg.codeRows, state.cfg.codeCols, {
     maskValues: displayMask
   });
-  el.maskBits.textContent = displayMask.join("") || "-";
+  el.maskBits.textContent = formatMaskBits(displayMask);
   const positions = [];
   for (let i = 0; i < displayMask.length; i++) {
     if (displayMask[i]) positions.push(i);
@@ -832,7 +1035,31 @@ function extractMessageFromMatrix(matrix) {
   return out;
 }
 
+function formatMaskBits(mask) {
+  if (mask.length <= FLAT_MASK_PREVIEW_LIMIT) {
+    el.maskMeta.textContent = "row-major";
+    return mask.join("") || "-";
+  }
+  const head = mask.slice(0, 96).join("");
+  const tail = mask.slice(-96).join("");
+  el.maskMeta.textContent = `row-major, compact preview of ${mask.length} bits`;
+  return `${head} ... ${tail}`;
+}
+
 function formatMessageMatrix(bits) {
+  if (state.cfg.msgBits > MESSAGE_PREVIEW_LIMIT * MESSAGE_PREVIEW_LIMIT) {
+    const previewRows = Math.min(MESSAGE_PREVIEW_LIMIT, state.cfg.infoRows);
+    const previewCols = Math.min(MESSAGE_PREVIEW_LIMIT, state.cfg.infoCols);
+    const lines = [];
+    for (let r = 0; r < previewRows; r++) {
+      const row = [];
+      for (let c = 0; c < previewCols; c++) {
+        row.push(bits[r * state.cfg.infoCols + c]);
+      }
+      lines.push(row.join(" "));
+    }
+    return `${state.cfg.infoRows}x${state.cfg.infoCols} decoded information block\nShowing top-left ${previewRows}x${previewCols} preview:\n${lines.join("\n")}`;
+  }
   const lines = [];
   for (let r = 0; r < state.cfg.infoRows; r++) {
     lines.push(Array.from(bits.slice(r * state.cfg.infoCols, (r + 1) * state.cfg.infoCols)).join(" "));
@@ -929,15 +1156,22 @@ async function startEncodeFlow() {
   const cwPtr = state.mod._malloc(state.cfg.cwBits);
 
   try {
-    state.mod._pw_trace_clear();
-    const rc = state.mod._pw_encode_trace(msgPtr, state.cfg.msgBits, cwPtr, state.cfg.cwBits);
+    let rc;
+    if (useSummarizedTrace(state.cfg)) {
+      rc = state.mod._pw_encode(msgPtr, state.cfg.msgBits, cwPtr, state.cfg.cwBits);
+    } else {
+      state.mod._pw_trace_clear();
+      rc = state.mod._pw_encode_trace(msgPtr, state.cfg.msgBits, cwPtr, state.cfg.cwBits);
+    }
     if (rc !== 0) {
-      throw new Error("pw_encode_trace failed.");
+      throw new Error(useSummarizedTrace(state.cfg) ? "pw_encode failed." : "pw_encode_trace failed.");
     }
     state.message = new Uint8Array(message);
     state.cw = readU8(state.mod, cwPtr, state.cfg.cwBits);
     state.errorMask = new Uint8Array(state.cfg.cwBits);
-    state.encodeFrames = buildEncodeFrames(readTraceEvents());
+    state.encodeFrames = useSummarizedTrace(state.cfg)
+      ? buildEncodeFramesFromCodeword(state.cw)
+      : buildEncodeFrames(readTraceEvents());
     state.encodeIdx = 0;
     state.maxUnlocked = 1;
     setScreen("encode");

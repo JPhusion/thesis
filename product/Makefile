@@ -22,6 +22,9 @@ all: demo test_product_encode test_product_decode
 demo: apps/demo.c $(OBJ)
 	$(CC) $(CFLAGS) -o build_product_demo apps/demo.c $(OBJ)
 
+snr_sweep: apps/snr_sweep.c $(OBJ)
+	$(CC) $(CFLAGS) -o build_product_snr_sweep apps/snr_sweep.c $(OBJ) -lm
+
 test_product_encode: tests/test_product_encode.c $(OBJ)
 	$(CC) $(CFLAGS) -o build_test_product_encode tests/test_product_encode.c $(OBJ)
 
@@ -42,4 +45,4 @@ test: all
 	./build_test_product_decode
 
 clean:
-	rm -f build/*.o build_product_demo build_test_product_encode build_test_product_decode
+	rm -f build/*.o build_product_demo build_test_product_encode build_test_product_decode build_product_snr_sweep

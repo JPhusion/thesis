@@ -27,6 +27,7 @@ typedef void (*bch_encode_step_cb_t)(void *user, int step, uint8_t in_bit, uint8
 void bch_encode_systematic(const bch_ctx_t *bch, const uint8_t *msg, uint8_t *cw);
 int  bch_encode_systematic_ex(const bch_ctx_t *bch, const uint8_t *msg, uint8_t *cw, bch_encode_step_cb_t step_cb, void *user);
 int  bch_decode(bch_ctx_t *bch, uint8_t *rx, int *out_errs);
+int  bch_decode_with_scratch(bch_ctx_t *bch, uint8_t *rx, int *out_errs, uint16_t *S, uint16_t *lambda_poly, int *err_pos);
 
 typedef struct {
     void (*iter_begin)(void *user, int n, int L, int m, uint16_t b, uint16_t d_init);
@@ -46,6 +47,7 @@ typedef struct {
 } bch_decode_hooks_t;
 
 int  bch_decode_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, const bch_decode_hooks_t *hooks);
+int  bch_decode_with_scratch_ex(bch_ctx_t *bch, uint8_t *rx, int *out_errs, uint16_t *S, uint16_t *lambda_poly, int *err_pos, const bch_decode_hooks_t *hooks);
 
 // Decoder stage APIs (also used by web/WASM wrappers).
 void bch_compute_syndromes(const bch_ctx_t *bch, const uint8_t *rx, uint16_t *S);

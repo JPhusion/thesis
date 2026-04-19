@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="${ROOT_DIR}/site/assets"
+LOCAL_CACHE_DIR="${ROOT_DIR}/.plot-cache"
+EM_CACHE_DIR="${ROOT_DIR}/.emcache"
 
 if ! command -v emcc >/dev/null 2>&1; then
     echo "error: emcc not found. Install Emscripten first." >&2
@@ -40,6 +42,7 @@ if [[ -z "${EMCC_PYTHON}" ]]; then
 fi
 
 mkdir -p "${OUT_DIR}"
+mkdir -p "${LOCAL_CACHE_DIR}/fontconfig" "${LOCAL_CACHE_DIR}/matplotlib" "${EM_CACHE_DIR}"
 
 COMMON_FLAGS=(
     -std=c11
@@ -55,9 +58,9 @@ run_emcc() {
     local out_file="$1"
     shift
     if head -n 1 "${EMCC_BIN}" | grep -Eq 'sh|bash'; then
-        EMSDK_PYTHON="${EMCC_PYTHON}" "${EMCC_BIN}" "$@" -o "${out_file}"
+        EM_CACHE="${EM_CACHE_DIR}" XDG_CACHE_HOME="${LOCAL_CACHE_DIR}" FC_CACHEDIR="${LOCAL_CACHE_DIR}/fontconfig" EMSDK_PYTHON="${EMCC_PYTHON}" "${EMCC_BIN}" "$@" -o "${out_file}"
     else
-        "${EMCC_PYTHON}" "${EMCC_BIN}" "$@" -o "${out_file}"
+        EM_CACHE="${EM_CACHE_DIR}" XDG_CACHE_HOME="${LOCAL_CACHE_DIR}" FC_CACHEDIR="${LOCAL_CACHE_DIR}/fontconfig" "${EMCC_PYTHON}" "${EMCC_BIN}" "$@" -o "${out_file}"
     fi
 }
 
@@ -82,6 +85,18 @@ PRODUCT_CORE_SRC=(
     "${ROOT_DIR}/bch/src/bch_decode.c"
     "${ROOT_DIR}/product/src/product.c"
     "${ROOT_DIR}/product/src/product_trace.c"
+)
+
+STAIRCASE_CORE_SRC=(
+    "${ROOT_DIR}/bch/src/gf.c"
+    "${ROOT_DIR}/bch/src/bch_gen.c"
+    "${ROOT_DIR}/bch/src/bch_encode.c"
+    "${ROOT_DIR}/bch/src/bch_syndrome.c"
+    "${ROOT_DIR}/bch/src/bch_bm.c"
+    "${ROOT_DIR}/bch/src/bch_chien.c"
+    "${ROOT_DIR}/bch/src/bch_decode.c"
+    "${ROOT_DIR}/staircase/src/staircase.c"
+    "${ROOT_DIR}/staircase/src/staircase_trace.c"
 )
 
 BCH_FLAGS=(
@@ -112,6 +127,22 @@ PRODUCT_TEST_FLAGS=(
     -I"${ROOT_DIR}/product/tests"
     -sEXPORT_NAME=ProductTestsModule
     -sEXPORTED_FUNCTIONS='["_pct_run_test_product_encode","_pct_run_test_product_decode"]'
+)
+
+STAIRCASE_FLAGS=(
+    -I"${ROOT_DIR}/bch/include"
+    -I"${ROOT_DIR}/staircase/include"
+    -sEXPORT_NAME=StaircaseModule
+    -sEXPORTED_FUNCTIONS='["_malloc","_free","_sw_init","_sw_free","_sw_get_component_n","_sw_get_component_k","_sw_get_component_dg","_sw_get_block_size","_sw_get_info_cols","_sw_get_parity_cols","_sw_get_data_blocks","_sw_get_total_blocks","_sw_get_msg_bits","_sw_get_state_bits","_sw_get_stored_bits","_sw_encode","_sw_extract_message","_sw_extract_stored","_sw_import_stored","_sw_decode","_sw_encode_trace","_sw_decode_trace","_sw_validate","_sw_trace_ptr","_sw_trace_len","_sw_trace_stride","_sw_trace_truncated","_sw_trace_clear","_sw_decode_stats_ptr"]'
+    -sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP32","HEAPU32"]'
+)
+
+STAIRCASE_TEST_FLAGS=(
+    -I"${ROOT_DIR}/bch/include"
+    -I"${ROOT_DIR}/staircase/include"
+    -I"${ROOT_DIR}/staircase/tests"
+    -sEXPORT_NAME=StaircaseTestsModule
+    -sEXPORTED_FUNCTIONS='["_sct_run_test_staircase_encode","_sct_run_test_staircase_decode"]'
 )
 
 echo "Building BCH WASM module..."
@@ -152,3 +183,22 @@ run_emcc "${OUT_DIR}/product_tests.js" \
     "${PRODUCT_TEST_FLAGS[@]}"
 echo "  ${OUT_DIR}/product_tests.js"
 echo "  ${OUT_DIR}/product_tests.wasm"
+
+echo "Building staircase-code WASM module..."
+run_emcc "${OUT_DIR}/staircase.js" \
+    "${STAIRCASE_CORE_SRC[@]}" \
+    "${ROOT_DIR}/staircase/src/staircase_wasm.c" \
+    "${COMMON_FLAGS[@]}" \
+    "${STAIRCASE_FLAGS[@]}"
+echo "  ${OUT_DIR}/staircase.js"
+echo "  ${OUT_DIR}/staircase.wasm"
+
+echo "Building staircase-code browser test module..."
+run_emcc "${OUT_DIR}/staircase_tests.js" \
+    "${STAIRCASE_CORE_SRC[@]}" \
+    "${ROOT_DIR}/staircase/tests/wasm_test_staircase_encode.c" \
+    "${ROOT_DIR}/staircase/tests/wasm_test_staircase_decode.c" \
+    "${COMMON_FLAGS[@]}" \
+    "${STAIRCASE_TEST_FLAGS[@]}"
+echo "  ${OUT_DIR}/staircase_tests.js"
+echo "  ${OUT_DIR}/staircase_tests.wasm"

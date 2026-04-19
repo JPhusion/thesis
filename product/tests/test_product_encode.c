@@ -27,6 +27,8 @@ static const cfg_t g_cfgs[] = {
     {.name = "PC[BCH(7,4,1) x BCH(7,4,1)]", .row_m = 3, .row_poly = 0b1011u, .row_t = 1, .col_m = 3, .col_poly = 0b1011u, .col_t = 1},
     {.name = "PC[BCH(15,7,2) x BCH(7,4,1)]", .row_m = 4, .row_poly = 0b10011u, .row_t = 2, .col_m = 3, .col_poly = 0b1011u, .col_t = 1},
     {.name = "PC[BCH(15,7,2) x BCH(15,7,2)]", .row_m = 4, .row_poly = 0b10011u, .row_t = 2, .col_m = 4, .col_poly = 0b10011u, .col_t = 2},
+    {.name = "PC[BCH(255,231,3) x BCH(255,231,3)]", .row_m = 8, .row_poly = 0x11du, .row_t = 3, .col_m = 8, .col_poly = 0x11du, .col_t = 3},
+    {.name = "PC[BCH(511,484,3) x BCH(511,484,3)]", .row_m = 9, .row_poly = 0x211u, .row_t = 3, .col_m = 9, .col_poly = 0x211u, .col_t = 3},
 };
 
 static void fill_msg_pattern(uint8_t *msg, int len, int pattern_id) {
