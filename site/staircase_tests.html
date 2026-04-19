@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Staircase Verification Lab</title>
-  <link rel="stylesheet" href="./styles.css?v=20260418-stair4">
+  <link rel="stylesheet" href="./styles.css?v=20260419-stairpaper1">
 </head>
 <body class="test-page">
   <div class="bg-orbs" aria-hidden="true">
@@ -130,7 +130,7 @@
           </label>
           <label>
             Data Blocks
-            <input id="stairSnrDataBlocks" type="number" min="1" max="10" value="7">
+            <input id="stairSnrDataBlocks" type="number" min="1" max="64" value="7">
           </label>
           <div class="meta-block">
             <div class="meta-title">Active Config</div>
@@ -141,34 +141,34 @@
         <div class="grid grid-4">
           <label>
             Decode Window
-            <input id="stairSnrWindow" type="number" min="2" max="6" value="3">
+            <input id="stairSnrWindow" type="number" min="2" max="12" value="7">
           </label>
           <label>
             Max Iterations
-            <input id="stairSnrMaxIters" type="number" min="1" max="12" value="3">
+            <input id="stairSnrMaxIters" type="number" min="1" max="20" value="12">
           </label>
           <label>
             m
-            <input id="stairSnrM" type="number" min="3" value="4">
+            <input id="stairSnrM" type="number" min="3" value="8">
           </label>
           <label>
             t
-            <input id="stairSnrT" type="number" min="1" value="1">
+            <input id="stairSnrT" type="number" min="1" value="3">
           </label>
         </div>
 
         <div class="grid grid-4">
           <label>
             Primitive Polynomial
-            <input id="stairSnrPrim" type="text" value="0b10011">
+            <input id="stairSnrPrim" type="text" value="0x11d">
           </label>
           <label>
             Start Eb/N0 (dB)
-            <input id="stairSnrStart" type="number" value="0" step="0.1">
+            <input id="stairSnrStart" type="number" value="3.6" step="0.1">
           </label>
           <label>
             End Eb/N0 (dB)
-            <input id="stairSnrEnd" type="number" value="6" step="0.1">
+            <input id="stairSnrEnd" type="number" value="4.8" step="0.1">
           </label>
           <label>
             Step (dB)
@@ -243,6 +243,6 @@
     </section>
   </main>
 
-  <script type="module" src="./staircase_tests_app.js?v=20260418-stair4"></script>
+  <script type="module" src="./staircase_tests_app.js?v=20260419-stairpaper1"></script>
 </body>
 </html>

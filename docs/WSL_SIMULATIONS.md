@@ -4,7 +4,10 @@ This repo now includes a native Linux/WSL BER pipeline for:
 
 - `BCH(255,231,3)`
 - `PC[BCH(255,231,3) x BCH(255,231,3)]`
-- `SC[short BCH(62,50,2), 7 data blocks]`
+- `SC[short BCH(254,230,3), 7 data blocks]`
+- `BCH(511,484,3)`
+- `PC[BCH(511,484,3) x BCH(511,484,3)]`
+- `SC[short BCH(510,483,3), 7 data blocks]`
 
 The script builds the native C runners, runs the BER sweeps, writes CSVs, and generates `png`, `pdf`, and `svg` plots.
 
@@ -86,8 +89,15 @@ That directory contains:
 By default the script runs:
 
 ```text
-bch_255,product_255,staircase_62
+bch_255,product_255,staircase_254,bch_511,product_511,staircase_510
 ```
+
+The staircase presets above are aligned to the paper settings from Figures 5 and 6 of `1902.03575v2`:
+
+- shortened BCH component codes `(254,230,3)` and `(510,483,3)`
+- window size `7`
+- total hard-decision iterations `12`
+- x-axis ranges `3.6–4.8 dB` and `4.5–5.2 dB`
 
 ## Common options
 
@@ -105,7 +115,7 @@ Run the suite with explicit settings:
 Change the graph set:
 
 ```bash
-./scripts/wsl/run_all_ber.sh --graphs bch_255,product_255,staircase_62
+./scripts/wsl/run_all_ber.sh --graphs bch_255,product_255,staircase_254,bch_511,product_511,staircase_510
 ```
 
 Reuse existing binaries if you already built them:
@@ -118,6 +128,7 @@ Reuse existing binaries if you already built them:
 
 - The ETA values are calibrated up front using a short warm-up pass, then refined as the real run progresses.
 - The staircase graph uses the current native staircase implementation in `staircase/`.
+- The staircase sweep is configured to match the paper's window size and iteration count, but it still uses this repo's current hard-decision staircase decoder. It does not implement iBDD-SR, AD, or genie-aided ideal iBDD from the paper.
 - The channel model is native C for all three families:
   - BPSK modulation
   - AWGN

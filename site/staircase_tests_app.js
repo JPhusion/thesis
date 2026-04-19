@@ -1,21 +1,27 @@
 const PRESETS = [
   {
-    name: "SC[short BCH(14,10,1), 7 data blocks]",
-    m: 4,
-    t: 1,
-    prim: "0b10011",
+    name: "SC[short BCH(254,230,3), paper Fig. 5 settings]",
+    m: 8,
+    t: 3,
+    prim: "0x11d",
     dataBlocks: 7,
-    windowSize: 3,
-    maxIters: 3
+    windowSize: 7,
+    maxIters: 12,
+    startDb: 3.6,
+    endDb: 4.8,
+    stepDb: 0.1
   },
   {
-    name: "SC[short BCH(30,20,2), 7 data blocks]",
-    m: 5,
-    t: 2,
-    prim: "0b100101",
+    name: "SC[short BCH(510,483,3), paper Fig. 6 settings]",
+    m: 9,
+    t: 3,
+    prim: "0x211",
     dataBlocks: 7,
-    windowSize: 3,
-    maxIters: 3
+    windowSize: 7,
+    maxIters: 12,
+    startDb: 4.5,
+    endDb: 5.2,
+    stepDb: 0.1
   },
   {
     name: "SC[short BCH(62,50,2), 7 data blocks]",
@@ -24,7 +30,34 @@ const PRESETS = [
     prim: "0b1000011",
     dataBlocks: 7,
     windowSize: 3,
-    maxIters: 3
+    maxIters: 3,
+    startDb: 0.0,
+    endDb: 6.0,
+    stepDb: 0.1
+  },
+  {
+    name: "SC[short BCH(30,20,2), 7 data blocks]",
+    m: 5,
+    t: 2,
+    prim: "0b100101",
+    dataBlocks: 7,
+    windowSize: 3,
+    maxIters: 3,
+    startDb: 0.0,
+    endDb: 6.0,
+    stepDb: 0.1
+  },
+  {
+    name: "SC[short BCH(14,10,1), 7 data blocks]",
+    m: 4,
+    t: 1,
+    prim: "0b10011",
+    dataBlocks: 7,
+    windowSize: 3,
+    maxIters: 3,
+    startDb: 0.0,
+    endDb: 6.0,
+    stepDb: 0.1
   }
 ];
 
@@ -544,6 +577,9 @@ function applyPresetFields() {
   el.snrM.value = String(preset.m);
   el.snrT.value = String(preset.t);
   el.snrPrim.value = preset.prim;
+  el.snrStart.value = String(preset.startDb);
+  el.snrEnd.value = String(preset.endDb);
+  el.snrStep.value = String(preset.stepDb);
 }
 
 async function loadModules() {

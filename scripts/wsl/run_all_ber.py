@@ -53,12 +53,29 @@ GRAPH_CONFIGS: Dict[str, Dict[str, object]] = {
         "label": "BCH(255,231,3)",
         "title": "BCH(255, 231, 3) BER over BPSK/AWGN",
         "subtitle": "Hard-decision BCH bounded-distance decoding",
-        "plot_xmin": 0.0,
-        "plot_xmax": 6.0,
+        "plot_xmin": 3.6,
+        "plot_xmax": 4.8,
+        "plot_ymin": 1e-7,
+        "plot_ymax": 1e-1,
         "m": 8,
         "t": 3,
         "prim": "0x11d",
         "seed": 2552313,
+    },
+    "bch_511": {
+        "slug": "bch_511_awgn_ber",
+        "family": "bch",
+        "label": "BCH(511,484,3)",
+        "title": "BCH(511, 484, 3) BER over BPSK/AWGN",
+        "subtitle": "Hard-decision BCH bounded-distance decoding",
+        "plot_xmin": 4.5,
+        "plot_xmax": 5.2,
+        "plot_ymin": 1e-7,
+        "plot_ymax": 1e-2,
+        "m": 9,
+        "t": 3,
+        "prim": "0x211",
+        "seed": 5114843,
     },
     "product_255": {
         "slug": "product_255_awgn_ber",
@@ -66,8 +83,10 @@ GRAPH_CONFIGS: Dict[str, Dict[str, object]] = {
         "label": "PC[BCH(255,231,3) x BCH(255,231,3)]",
         "title": "Square Product Code BER with BCH(255, 231, 3) Components",
         "subtitle": "Iterative hard-decision row/column decoding",
-        "plot_xmin": 0.0,
-        "plot_xmax": 6.0,
+        "plot_xmin": 3.6,
+        "plot_xmax": 4.8,
+        "plot_ymin": 1e-7,
+        "plot_ymax": 1e-1,
         "row_m": 8,
         "row_t": 3,
         "row_prim": "0x11d",
@@ -76,6 +95,61 @@ GRAPH_CONFIGS: Dict[str, Dict[str, object]] = {
         "col_prim": "0x11d",
         "max_iters": 4,
         "seed": 2552313,
+    },
+    "product_511": {
+        "slug": "product_511_awgn_ber",
+        "family": "product",
+        "label": "PC[BCH(511,484,3) x BCH(511,484,3)]",
+        "title": "Square Product Code BER with BCH(511, 484, 3) Components",
+        "subtitle": "Iterative hard-decision row/column decoding",
+        "plot_xmin": 4.5,
+        "plot_xmax": 5.2,
+        "plot_ymin": 1e-7,
+        "plot_ymax": 1e-2,
+        "row_m": 9,
+        "row_t": 3,
+        "row_prim": "0x211",
+        "col_m": 9,
+        "col_t": 3,
+        "col_prim": "0x211",
+        "max_iters": 4,
+        "seed": 5114843,
+    },
+    "staircase_254": {
+        "slug": "staircase_short_254_awgn_ber",
+        "family": "staircase",
+        "label": "SC[short BCH(254,230,3), 7 data blocks]",
+        "title": "Terminated Staircase BER with short BCH(254, 230, 3) Component",
+        "subtitle": "Paper-style windowed hard-decision staircase decoding (window 7, 12 iterations)",
+        "plot_xmin": 3.6,
+        "plot_xmax": 4.8,
+        "plot_ymin": 1e-7,
+        "plot_ymax": 1e-1,
+        "m": 8,
+        "t": 3,
+        "prim": "0x11d",
+        "data_blocks": 7,
+        "window_size": 7,
+        "max_iters": 12,
+        "seed": 25423037,
+    },
+    "staircase_510": {
+        "slug": "staircase_short_510_awgn_ber",
+        "family": "staircase",
+        "label": "SC[short BCH(510,483,3), 7 data blocks]",
+        "title": "Terminated Staircase BER with short BCH(510, 483, 3) Component",
+        "subtitle": "Paper-style windowed hard-decision staircase decoding (window 7, 12 iterations)",
+        "plot_xmin": 4.5,
+        "plot_xmax": 5.2,
+        "plot_ymin": 1e-7,
+        "plot_ymax": 1e-2,
+        "m": 9,
+        "t": 3,
+        "prim": "0x211",
+        "data_blocks": 7,
+        "window_size": 7,
+        "max_iters": 12,
+        "seed": 51048337,
     },
     "staircase_62": {
         "slug": "staircase_short_62_awgn_ber",
@@ -165,8 +239,8 @@ def make_plot(cfg: Dict[str, object], rows: List[Dict[str, float]], out_base: Pa
 
     min_y = min(all_positive)
     max_y = max(max(all_positive), 1e-2)
-    y_min = min(1e-7, 10 ** math.floor(math.log10(min_y)))
-    y_max = max(1e-1, 10 ** math.ceil(math.log10(max_y)))
+    y_min = float(cfg.get("plot_ymin", min(1e-7, 10 ** math.floor(math.log10(min_y)))))
+    y_max = float(cfg.get("plot_ymax", max(1e-1, 10 ** math.ceil(math.log10(max_y)))))
 
     fig, ax = plt.subplots(figsize=(7.2, 6.1), constrained_layout=True)
     ax.set_facecolor("white")
@@ -555,7 +629,7 @@ def main() -> None:
     parser.add_argument("--step-db", type=float, default=0.1)
     parser.add_argument("--frames", type=int, default=500)
     parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS)
-    parser.add_argument("--graphs", type=str, default="bch_255,product_255,staircase_62", help="Comma-separated graph keys.")
+    parser.add_argument("--graphs", type=str, default="bch_255,product_255,staircase_254,bch_511,product_511,staircase_510", help="Comma-separated graph keys.")
     parser.add_argument("--calibration-frames", type=int, default=4)
     parser.add_argument("--out-dir", type=Path, default=None)
     parser.add_argument("--skip-build", action="store_true")
