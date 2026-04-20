@@ -38,6 +38,8 @@ artifacts/
 # Local plotting environment
 .venv-thesis-plots/
 .venv-ber-suite/
+.venv-ber-windows/
 .emcache/
 .plot-cache/
 .cache/
+.tools/

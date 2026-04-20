@@ -22,9 +22,18 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter, LogLocator, MultipleLocator
 
 ROOT = Path(__file__).resolve().parents[2]
-BCH_RUNNER = ROOT / "bch" / "build_bch_snr_sweep"
-PRODUCT_RUNNER = ROOT / "product" / "build_product_snr_sweep"
-STAIRCASE_RUNNER = ROOT / "staircase" / "build_staircase_snr_sweep"
+IS_WINDOWS = os.name == "nt"
+
+
+def native_executable(path: Path) -> Path:
+    if IS_WINDOWS:
+        return path.with_suffix(".exe")
+    return path
+
+
+BCH_RUNNER = native_executable(ROOT / "bch" / "build_bch_snr_sweep")
+PRODUCT_RUNNER = native_executable(ROOT / "product" / "build_product_snr_sweep")
+STAIRCASE_RUNNER = native_executable(ROOT / "staircase" / "build_staircase_snr_sweep")
 DEFAULT_OUT_ROOT = ROOT / "artifacts" / "wsl-ber-runs"
 DEFAULT_JOBS = min(8, max(1, (os.cpu_count() or 1)))
 
@@ -188,6 +197,15 @@ class GraphStatus:
 
 
 def build_runners() -> None:
+    if IS_WINDOWS:
+        subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "windows" / "build_native_runners.py"),
+            ],
+            check=True,
+        )
+        return
     subprocess.run(["make", "-C", str(ROOT / "bch"), "snr_sweep"], check=True)
     subprocess.run(["make", "-C", str(ROOT / "product"), "snr_sweep"], check=True)
     subprocess.run(["make", "-C", str(ROOT / "staircase"), "snr_sweep"], check=True)
@@ -576,7 +594,7 @@ def run_case(cfg: Dict[str, object], args: argparse.Namespace, out_dir: Path, st
 def write_manifest(out_dir: Path, args: argparse.Namespace, statuses: List[GraphStatus]) -> None:
     manifest = out_dir / "README.txt"
     lines = [
-        "WSL/Linux BER simulation bundle generated from native C simulations.",
+        "Native BER simulation bundle generated from native C simulations.",
         "",
         "Channel: BPSK modulation + AWGN + hard demodulation",
         f"Sweep: {args.start_db:.2f} to {args.end_db:.2f} dB in {args.step_db:.2f} dB steps",
@@ -609,6 +627,38 @@ def parse_graphs(raw: str) -> List[Dict[str, object]]:
 
 
 def ensure_out_dir(path: Optional[Path]) -> Path:
+    def refresh_latest_pointer(latest: Path, target: Path) -> None:
+        (DEFAULT_OUT_ROOT / "latest.txt").write_text(str(target) + "\n", encoding="utf-8")
+
+        if latest.exists() or latest.is_symlink():
+            if latest.is_dir() and not latest.is_symlink():
+                shutil.rmtree(latest)
+            else:
+                latest.unlink()
+
+        if IS_WINDOWS:
+            try:
+                subprocess.run(
+                    [
+                        "cmd",
+                        "/c",
+                        "mklink",
+                        "/J",
+                        str(latest),
+                        str(target),
+                    ],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                return
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                pass
+
+            return
+
+        latest.symlink_to(target.name)
+
     if path:
         path.mkdir(parents=True, exist_ok=True)
         return path
@@ -616,14 +666,12 @@ def ensure_out_dir(path: Optional[Path]) -> Path:
     out_dir = DEFAULT_OUT_ROOT / stamp
     out_dir.mkdir(parents=True, exist_ok=True)
     latest = DEFAULT_OUT_ROOT / "latest"
-    if latest.exists() or latest.is_symlink():
-        latest.unlink()
-    latest.symlink_to(out_dir.name)
+    refresh_latest_pointer(latest, out_dir)
     return out_dir
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run native BCH/product/staircase BER simulations from WSL/Linux with live ETA reporting.")
+    parser = argparse.ArgumentParser(description="Run native BCH/product/staircase BER simulations with live ETA reporting.")
     parser.add_argument("--start-db", type=float, default=0.0)
     parser.add_argument("--end-db", type=float, default=6.0)
     parser.add_argument("--step-db", type=float, default=0.1)

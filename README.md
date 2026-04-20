@@ -2,7 +2,7 @@
 
 This repository contains a native C BCH implementation (`bch/`) and a static browser lab (`site/`) that runs the same C core through WebAssembly.
 
-### WSL / Linux BER workflow
+### BER workflow
 
 If you want the native BER curves for:
 
@@ -10,8 +10,9 @@ If you want the native BER curves for:
 - Product code
 - Staircase code
 
-use the WSL/Linux flow documented here:
+use one of these guides:
 
+- [docs/WINDOWS_SIMULATIONS.md](docs/WINDOWS_SIMULATIONS.md)
 - [docs/WSL_SIMULATIONS.md](docs/WSL_SIMULATIONS.md)
 - [docs/WSL_CLOUDFLARE_SSH.md](docs/WSL_CLOUDFLARE_SSH.md)
 
@@ -22,6 +23,12 @@ Quickstart after cloning inside WSL:
 ```
 
 That will install Linux dependencies, create the plotting environment, build the native sweep runners, run the simulations, and generate CSV + `png/pdf/svg` plots with live progress and ETA reporting.
+
+Quickstart on native Windows PowerShell:
+
+```powershell
+.\scripts\windows\run_all_ber.ps1 -Bootstrap
+```
 
 ### Native workflow
 

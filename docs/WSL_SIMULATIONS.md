@@ -1,5 +1,7 @@
 # WSL Simulation Quickstart
 
+If you need to run the same BER suite natively on Windows instead, use [docs/WINDOWS_SIMULATIONS.md](./WINDOWS_SIMULATIONS.md).
+
 This repo now includes a native Linux/WSL BER pipeline for:
 
 - `BCH(255,231,3)`
