@@ -1,8 +1,8 @@
-$ErrorActionPreference = "Stop"
-
 param(
     [string]$ZigVersion = "0.13.0"
 )
+
+$ErrorActionPreference = "Stop"
 
 function Get-PythonCommand {
     if (Get-Command py -ErrorAction SilentlyContinue) {

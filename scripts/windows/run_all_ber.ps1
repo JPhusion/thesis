@@ -1,5 +1,3 @@
-$ErrorActionPreference = "Stop"
-
 param(
     [switch]$Bootstrap,
     [switch]$SkipBuild,
@@ -12,6 +10,8 @@ param(
     [string]$Graphs = "bch_255,product_255,staircase_254,bch_511,product_511,staircase_510",
     [string]$OutDir = ""
 )
+
+$ErrorActionPreference = "Stop"
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $BootstrapScript = Join-Path $Root "scripts\windows\bootstrap_windows_env.ps1"
