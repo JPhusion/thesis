@@ -87,6 +87,8 @@ The runner shows a live table with:
 - ETA for each graph
 - predicted finish time for each graph
 
+While the suite is running, it also updates each graph's merged CSV and plot files in place so you can inspect intermediate results before the whole suite finishes.
+
 It also writes a machine-readable progress file:
 
 ```text
@@ -158,6 +160,10 @@ Write outputs to a custom directory:
   - BPSK modulation
   - AWGN
   - hard demodulation
+- By default the runner uses all available logical CPU cores.
+- By default the runner does a two-stage sweep:
+  - coarse sweep at your requested `StepDb`
+  - automatic denser refinement around the steepest waterfall region using `0.02 dB` spacing
 - The ETA values are calibrated first, then refined while the run is in progress.
 - The staircase sweep uses the current native staircase decoder in this repo.
 - The paper-aligned staircase presets match the paper's window size and total iteration count, but they still use this repo's hard-decision staircase decoder.

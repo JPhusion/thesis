@@ -35,7 +35,7 @@ BCH_RUNNER = native_executable(ROOT / "bch" / "build_bch_snr_sweep")
 PRODUCT_RUNNER = native_executable(ROOT / "product" / "build_product_snr_sweep")
 STAIRCASE_RUNNER = native_executable(ROOT / "staircase" / "build_staircase_snr_sweep")
 DEFAULT_OUT_ROOT = ROOT / "artifacts" / "wsl-ber-runs"
-DEFAULT_JOBS = min(8, max(1, (os.cpu_count() or 1)))
+DEFAULT_JOBS = max(1, (os.cpu_count() or 1))
 
 plt.rcParams.update(
     {
@@ -194,6 +194,8 @@ class GraphStatus:
     calibration_elapsed_seconds: Optional[float] = None
     point_logs: List[str] = field(default_factory=list)
     files: List[Path] = field(default_factory=list)
+    adaptive_note: Optional[str] = None
+    last_plot_refresh_at: float = 0.0
 
 
 def build_runners() -> None:
@@ -220,6 +222,10 @@ def build_snr_points(start_db: float, end_db: float, step_db: float) -> List[flo
     return points
 
 
+def round_snr_key(snr_db: float) -> float:
+    return round(snr_db, 3)
+
+
 def load_csv(path: Path) -> List[Dict[str, float]]:
     rows: List[Dict[str, float]] = []
     with path.open(newline="") as fp:
@@ -235,6 +241,65 @@ def load_csv(path: Path) -> List[Dict[str, float]]:
                 }
             )
     return rows
+
+
+def choose_waterfall_refinement(
+    rows: List[Dict[str, float]],
+    coarse_points: List[float],
+    start_db: float,
+    end_db: float,
+    coarse_step_db: float,
+    fine_step_db: float,
+    span_steps: int,
+) -> Tuple[List[float], Optional[str]]:
+    if fine_step_db >= coarse_step_db or len(rows) < 2:
+        return [], None
+
+    best: Optional[Tuple[float, int, str]] = None
+    for key in ("decoded_ber", "raw_ber"):
+        local_best: Optional[Tuple[float, int, str]] = None
+        for i in range(len(rows) - 1):
+            x0 = rows[i]["snr_db"]
+            x1 = rows[i + 1]["snr_db"]
+            y0 = rows[i][key]
+            y1 = rows[i + 1][key]
+            if x1 <= x0 or y0 <= 0.0 or y1 <= 0.0:
+                continue
+            drop_per_db = (math.log10(y0) - math.log10(y1)) / (x1 - x0)
+            if drop_per_db <= 0.0:
+                continue
+            candidate = (drop_per_db, i, key)
+            if local_best is None or candidate[0] > local_best[0]:
+                local_best = candidate
+        if local_best is not None:
+            best = local_best
+            if key == "decoded_ber":
+                break
+
+    if best is None:
+        return [], None
+
+    _, center_index, series_key = best
+    left_index = max(0, center_index - span_steps)
+    right_index = min(len(rows) - 1, center_index + 1 + span_steps)
+    left_db = max(start_db, rows[left_index]["snr_db"])
+    right_db = min(end_db, rows[right_index]["snr_db"])
+
+    coarse_keys = {round_snr_key(point) for point in coarse_points}
+    fine_points = [
+        point
+        for point in build_snr_points(left_db, right_db, fine_step_db)
+        if round_snr_key(point) not in coarse_keys
+    ]
+
+    if not fine_points:
+        return [], None
+
+    note = (
+        f"adaptive refinement on {series_key} waterfall: "
+        f"{left_db:.2f}-{right_db:.2f} dB at {fine_step_db:.2f} dB spacing"
+    )
+    return fine_points, note
 
 
 def positive_series(rows: List[Dict[str, float]], key: str) -> Tuple[List[float], List[float]]:
@@ -323,7 +388,13 @@ def make_plot(cfg: Dict[str, object], rows: List[Dict[str, float]], out_base: Pa
     plt.close(fig)
 
 
-def write_merged_csv(cfg: Dict[str, object], rows: List[Dict[str, float]], args: argparse.Namespace, out_csv: Path) -> None:
+def write_merged_csv(
+    cfg: Dict[str, object],
+    rows: List[Dict[str, float]],
+    args: argparse.Namespace,
+    out_csv: Path,
+    adaptive_note: Optional[str] = None,
+) -> None:
     with out_csv.open("w", newline="") as fp:
         fp.write(f"# label,{cfg['label']}\n")
         fp.write(f"# family,{cfg['family']}\n")
@@ -334,6 +405,11 @@ def write_merged_csv(cfg: Dict[str, object], rows: List[Dict[str, float]], args:
         fp.write(f"# start_db,{args.start_db}\n")
         fp.write(f"# end_db,{args.end_db}\n")
         fp.write(f"# step_db,{args.step_db}\n")
+        fp.write(f"# adaptive_waterfall,{str(args.adaptive_waterfall).lower()}\n")
+        fp.write(f"# adaptive_fine_step,{args.adaptive_fine_step}\n")
+        fp.write(f"# adaptive_span_steps,{args.adaptive_span_steps}\n")
+        if adaptive_note:
+            fp.write(f"# adaptive_note,{adaptive_note}\n")
         if cfg["family"] == "product":
             fp.write(f"# max_iters,{cfg['max_iters']}\n")
         if cfg["family"] == "staircase":
@@ -352,6 +428,52 @@ def write_merged_csv(cfg: Dict[str, object], rows: List[Dict[str, float]], args:
                     int(row["frames"]),
                 ]
             )
+
+
+def update_status_files(status: GraphStatus, *paths: Path) -> None:
+    known = {path for path in status.files}
+    for path in paths:
+        if path.exists() and path not in known:
+            status.files.append(path)
+            known.add(path)
+
+
+def write_live_outputs(
+    cfg: Dict[str, object],
+    args: argparse.Namespace,
+    out_dir: Path,
+    status: GraphStatus,
+    rows_by_snr: Dict[float, Dict[str, float]],
+    force_plot: bool = False,
+) -> None:
+    rows = sorted(rows_by_snr.values(), key=lambda row: row["snr_db"])
+    if not rows:
+        return
+
+    csv_path = out_dir / f"{cfg['slug']}.csv"
+    plot_base = out_dir / str(cfg["slug"])
+    write_merged_csv(cfg, rows, args, csv_path, status.adaptive_note)
+    update_status_files(status, csv_path)
+
+    now = time.time()
+    should_plot = force_plot or (status.last_plot_refresh_at == 0.0) or (
+        now - status.last_plot_refresh_at >= args.live_plot_interval_seconds
+    )
+    if should_plot:
+        try:
+            make_plot(cfg, rows, plot_base, args.start_db, args.end_db)
+        except RuntimeError:
+            pass
+        else:
+            status.last_plot_refresh_at = now
+            update_status_files(
+                status,
+                plot_base.with_suffix(".png"),
+                plot_base.with_suffix(".pdf"),
+                plot_base.with_suffix(".svg"),
+            )
+
+    write_manifest(out_dir, args, STATUSES)
 
 
 def make_point_command(cfg: Dict[str, object], args: argparse.Namespace, snr_db: float, frames: int, out_csv: Path, seed: int) -> List[str]:
@@ -435,7 +557,7 @@ def format_finish(ts: Optional[float]) -> str:
 def total_seconds_for_status(status: GraphStatus, now: float) -> Optional[float]:
     if status.status == "done":
         return status.actual_elapsed_seconds
-    if status.status == "running" and status.completed_points > 0 and status.started_at is not None:
+    if status.status in ("running", "coarse", "fine") and status.completed_points > 0 and status.started_at is not None:
         elapsed = now - status.started_at
         return elapsed / status.completed_points * status.total_points
     return status.estimated_total_seconds
@@ -482,6 +604,7 @@ def write_progress_json(out_dir: Path, statuses: List[GraphStatus], suite_start:
                 "predicted_finish": datetime.fromtimestamp(finish_at).isoformat() if finish_at else None,
                 "actual_elapsed_seconds": status.actual_elapsed_seconds,
                 "files": [str(path) for path in status.files],
+                "adaptive_note": status.adaptive_note,
             }
             for status, start_at, finish_at in schedule
         ],
@@ -537,54 +660,76 @@ def calibrate_graph(cfg: Dict[str, object], args: argparse.Namespace, out_dir: P
 def run_case(cfg: Dict[str, object], args: argparse.Namespace, out_dir: Path, status: GraphStatus, suite_start: float) -> None:
     parts_dir = out_dir / f"_{cfg['slug']}_parts"
     parts_dir.mkdir(parents=True, exist_ok=True)
-    points = build_snr_points(args.start_db, args.end_db, args.step_db)
-    jobs = min(max(1, args.jobs), len(points))
-    rows: List[Dict[str, float]] = []
+    coarse_points = build_snr_points(args.start_db, args.end_db, args.step_db)
+    rows_by_snr: Dict[float, Dict[str, float]] = {}
     t0 = time.perf_counter()
-    status.status = "running"
+    status.status = "coarse"
     status.started_at = time.time()
     render_status(out_dir, STATUSES, suite_start)
 
-    with ThreadPoolExecutor(max_workers=jobs) as pool:
-        future_map = {}
-        for snr_db in points:
-            out_csv = parts_dir / f"snr_{snr_db:05.2f}.csv"
-            future = pool.submit(run_point_job, cfg, args, snr_db, args.frames, out_csv)
-            future_map[future] = (snr_db, out_csv)
+    def run_point_batch(points: List[float], stage_name: str) -> None:
+        if not points:
+            return
 
-        while future_map:
-            done, _ = wait(list(future_map.keys()), timeout=1.0, return_when=FIRST_COMPLETED)
-            if not done:
-                render_status(out_dir, STATUSES, suite_start)
-                continue
+        jobs = min(max(1, args.jobs), len(points))
+        status.status = stage_name
+        render_status(out_dir, STATUSES, suite_start)
 
-            for future in done:
-                snr_db, out_csv = future_map.pop(future)
-                point_db, stderr_text = future.result()
-                status.last_snr_db = point_db
-                status.completed_points += 1
-                if stderr_text:
-                    status.point_logs.extend(line for line in stderr_text.splitlines() if line.strip())
-                point_rows = load_csv(out_csv)
-                if len(point_rows) != 1:
-                    raise RuntimeError(f"Expected exactly one CSV row for {point_db:.3f} dB, got {len(point_rows)}")
-                rows.extend(point_rows)
-                status.actual_elapsed_seconds = time.perf_counter() - t0
-                render_status(out_dir, STATUSES, suite_start)
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            future_map = {}
+            for snr_db in points:
+                out_csv = parts_dir / f"{stage_name}_snr_{snr_db:06.3f}.csv"
+                future = pool.submit(run_point_job, cfg, args, snr_db, args.frames, out_csv)
+                future_map[future] = (snr_db, out_csv)
 
-    rows.sort(key=lambda row: row["snr_db"])
-    csv_path = out_dir / f"{cfg['slug']}.csv"
-    plot_base = out_dir / str(cfg["slug"])
-    write_merged_csv(cfg, rows, args, csv_path)
-    make_plot(cfg, rows, plot_base, args.start_db, args.end_db)
-    status.files.extend(
-        [
-            csv_path,
-            plot_base.with_suffix(".png"),
-            plot_base.with_suffix(".pdf"),
-            plot_base.with_suffix(".svg"),
-        ]
-    )
+            while future_map:
+                done, _ = wait(list(future_map.keys()), timeout=1.0, return_when=FIRST_COMPLETED)
+                if not done:
+                    render_status(out_dir, STATUSES, suite_start)
+                    continue
+
+                for future in done:
+                    snr_db, out_csv = future_map.pop(future)
+                    point_db, stderr_text = future.result()
+                    status.last_snr_db = point_db
+                    status.completed_points += 1
+                    if stderr_text:
+                        status.point_logs.extend(line for line in stderr_text.splitlines() if line.strip())
+                    point_rows = load_csv(out_csv)
+                    if len(point_rows) != 1:
+                        raise RuntimeError(f"Expected exactly one CSV row for {point_db:.3f} dB, got {len(point_rows)}")
+                    row = point_rows[0]
+                    rows_by_snr[round_snr_key(row["snr_db"])] = row
+                    status.actual_elapsed_seconds = time.perf_counter() - t0
+                    write_live_outputs(cfg, args, out_dir, status, rows_by_snr)
+                    render_status(out_dir, STATUSES, suite_start)
+
+    run_point_batch(coarse_points, "coarse")
+
+    if args.adaptive_waterfall:
+        coarse_rows = sorted(rows_by_snr.values(), key=lambda row: row["snr_db"])
+        fine_points, adaptive_note = choose_waterfall_refinement(
+            coarse_rows,
+            coarse_points,
+            args.start_db,
+            args.end_db,
+            args.step_db,
+            args.adaptive_fine_step,
+            args.adaptive_span_steps,
+        )
+        if fine_points:
+            status.adaptive_note = adaptive_note
+            status.point_logs.append(adaptive_note)
+            status.total_points += len(fine_points)
+            if status.completed_points > 0:
+                status.estimated_total_seconds = (
+                    status.actual_elapsed_seconds / status.completed_points
+                ) * status.total_points
+            render_status(out_dir, STATUSES, suite_start)
+            run_point_batch(fine_points, "fine")
+
+    rows = sorted(rows_by_snr.values(), key=lambda row: row["snr_db"])
+    write_live_outputs(cfg, args, out_dir, status, rows_by_snr, force_plot=True)
     status.actual_elapsed_seconds = time.perf_counter() - t0
     status.status = "done"
     status.finished_at = time.time()
@@ -609,6 +754,8 @@ def write_manifest(out_dir: Path, args: argparse.Namespace, statuses: List[Graph
         lines.append(f"  elapsed: {status.actual_elapsed_seconds:.1f}s")
         if status.calibration_elapsed_seconds is not None:
             lines.append(f"  calibration: {status.calibration_elapsed_seconds:.2f}s")
+        if status.adaptive_note:
+            lines.append(f"  adaptive: {status.adaptive_note}")
         lines.append(f"  files: {', '.join(path.name for path in status.files)}")
     manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -679,8 +826,14 @@ def main() -> None:
     parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS)
     parser.add_argument("--graphs", type=str, default="bch_255,product_255,staircase_254,bch_511,product_511,staircase_510", help="Comma-separated graph keys.")
     parser.add_argument("--calibration-frames", type=int, default=4)
+    parser.add_argument("--adaptive-fine-step", type=float, default=0.02, help="Fine SNR step used for automatic waterfall refinement.")
+    parser.add_argument("--adaptive-span-steps", type=int, default=2, help="How many coarse steps to extend on each side of the detected waterfall interval.")
+    parser.add_argument("--adaptive-waterfall", dest="adaptive_waterfall", action="store_true", help="Automatically refine the steepest waterfall region with denser SNR points.")
+    parser.add_argument("--no-adaptive-waterfall", dest="adaptive_waterfall", action="store_false", help="Disable automatic waterfall refinement.")
+    parser.add_argument("--live-plot-interval-seconds", type=float, default=5.0, help="Minimum time between live plot refreshes while a graph is still running.")
     parser.add_argument("--out-dir", type=Path, default=None)
     parser.add_argument("--skip-build", action="store_true")
+    parser.set_defaults(adaptive_waterfall=True)
     args = parser.parse_args()
 
     if args.frames <= 0:
@@ -691,6 +844,12 @@ def main() -> None:
         raise SystemExit("jobs must be positive")
     if args.calibration_frames <= 0:
         raise SystemExit("calibration-frames must be positive")
+    if args.adaptive_fine_step <= 0:
+        raise SystemExit("adaptive-fine-step must be positive")
+    if args.adaptive_span_steps < 0:
+        raise SystemExit("adaptive-span-steps must be non-negative")
+    if args.live_plot_interval_seconds < 0:
+        raise SystemExit("live-plot-interval-seconds must be non-negative")
 
     out_dir = ensure_out_dir(args.out_dir)
 

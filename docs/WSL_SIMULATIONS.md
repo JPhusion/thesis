@@ -66,6 +66,8 @@ The runner shows a live status table with:
 - ETA for each graph
 - predicted finish time for each graph
 
+While the suite is running, it also updates each graph's merged CSV and plot files in place so you can inspect intermediate results before the whole suite finishes.
+
 It also writes a machine-readable progress file:
 
 ```text
@@ -128,6 +130,10 @@ Reuse existing binaries if you already built them:
 
 ## Notes
 
+- By default the runner uses all available logical CPU cores.
+- By default the runner does a two-stage sweep:
+  - coarse sweep at your requested `step_db`
+  - automatic denser refinement around the steepest waterfall region using `0.02 dB` spacing
 - The ETA values are calibrated up front using a short warm-up pass, then refined as the real run progresses.
 - The staircase graph uses the current native staircase implementation in `staircase/`.
 - The staircase sweep is configured to match the paper's window size and iteration count, but it still uses this repo's current hard-decision staircase decoder. It does not implement iBDD-SR, AD, or genie-aided ideal iBDD from the paper.

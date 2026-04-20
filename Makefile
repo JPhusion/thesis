@@ -2,7 +2,7 @@
 
 CODE ?= all
 FRAMES ?= 500
-JOBS ?= 4
+JOBS ?= $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || python3 -c 'import os; print(os.cpu_count() or 1)' 2>/dev/null || echo 4)
 START_DB ?= 0
 END_DB ?= 6
 STEP_DB ?= 0.1

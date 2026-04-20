@@ -2,7 +2,7 @@ param(
     [switch]$Bootstrap,
     [switch]$SkipBuild,
     [int]$Frames = 500,
-    [int]$Jobs = 4,
+    [int]$Jobs = [Environment]::ProcessorCount,
     [double]$StartDb = 0.0,
     [double]$EndDb = 6.0,
     [double]$StepDb = 0.1,
