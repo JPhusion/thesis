@@ -151,7 +151,7 @@ static int parse_args(int argc, char **argv, sweep_cfg_t *cfg) {
         .col_m = 8,
         .col_poly = 0x11du,
         .col_t = 3,
-        .max_iters = 4,
+        .max_iters = 12,
         .start_db = 0.0,
         .end_db = 6.0,
         .step_db = 0.1,

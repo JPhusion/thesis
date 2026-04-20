@@ -11,6 +11,11 @@ This repo now includes a **native Windows BER pipeline** for:
 
 It uses the same native C sweep programs and the same Python orchestration/progress reporting as the Linux path, but with a **portable Zig C compiler** downloaded into the repo so you do not need WSL or `make`.
 
+The current BER defaults use:
+
+- product-code decoding: `12` iterations
+- staircase decoding: `12` iterations for the paper-aligned presets
+
 ## 1. Install Python 3
 
 You need a normal Windows Python 3 install that provides either:

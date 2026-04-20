@@ -60,7 +60,7 @@ CONFIGS: List[Dict[str, object]] = [
         "family": "product",
         "label": "PC[BCH(255,231,3) x BCH(255,231,3)]",
         "title": "Square Product Code BER with BCH(255, 231, 3) Components",
-        "subtitle": "Iterative hard-decision row/column decoding (4 iterations)",
+        "subtitle": "Iterative hard-decision row/column decoding (12 iterations)",
         "plot_xmin": 3.6,
         "plot_xmax": 4.8,
         "row_m": 8,
@@ -69,7 +69,7 @@ CONFIGS: List[Dict[str, object]] = [
         "col_m": 8,
         "col_t": 3,
         "col_prim": "0x11d",
-        "max_iters": 4,
+        "max_iters": 12,
         "bits_per_frame": 255 * 255,
         "seed": 2552313,
     },
@@ -92,7 +92,7 @@ CONFIGS: List[Dict[str, object]] = [
         "family": "product",
         "label": "PC[BCH(511,484,3) x BCH(511,484,3)]",
         "title": "Square Product Code BER with BCH(511, 484, 3) Components",
-        "subtitle": "Iterative hard-decision row/column decoding (4 iterations)",
+        "subtitle": "Iterative hard-decision row/column decoding (12 iterations)",
         "plot_xmin": 4.5,
         "plot_xmax": 5.2,
         "row_m": 9,
@@ -101,7 +101,7 @@ CONFIGS: List[Dict[str, object]] = [
         "col_m": 9,
         "col_t": 3,
         "col_prim": "0x211",
-        "max_iters": 4,
+        "max_iters": 12,
         "bits_per_frame": 511 * 511,
         "seed": 5114843,
     },
@@ -436,7 +436,7 @@ def main() -> None:
     parser.add_argument("--frames", type=int, default=500)
     parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
-    parser.add_argument("--product-max-iters", type=int, default=4)
+    parser.add_argument("--product-max-iters", type=int, default=12)
     parser.add_argument("--plot-only", action="store_true", help="Regenerate plots from existing merged CSVs without rerunning any simulations.")
     args = parser.parse_args()
 

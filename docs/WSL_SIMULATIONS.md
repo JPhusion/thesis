@@ -13,6 +13,11 @@ This repo now includes a native Linux/WSL BER pipeline for:
 
 The script builds the native C runners, runs the BER sweeps, writes CSVs, and generates `png`, `pdf`, and `svg` plots.
 
+The current BER defaults use:
+
+- product-code decoding: `12` iterations
+- staircase decoding: `12` iterations for the paper-aligned presets
+
 ## 1. Install WSL
 
 From an elevated Windows PowerShell:
