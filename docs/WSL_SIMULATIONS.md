@@ -6,17 +6,20 @@ This repo now includes a native Linux/WSL BER pipeline for:
 
 - `BCH(255,231,3)`
 - `PC[BCH(255,231,3) x BCH(255,231,3)]`
-- `SC[short BCH(254,230,3), 7 data blocks]`
+- `SC[short BCH(254,230,3)]`
 - `BCH(511,484,3)`
 - `PC[BCH(511,484,3) x BCH(511,484,3)]`
-- `SC[short BCH(510,483,3), 7 data blocks]`
+- `SC[short BCH(510,483,3)]`
 
-The script builds the native C runners, runs the BER sweeps, writes CSVs, and generates `png`, `pdf`, and `svg` plots.
+The script builds the native C runners, runs the BER sweeps, writes CSVs, and generates `png`, `pdf`, and `svg` plots. The same `run_all_ber.py` driver also runs on native Windows (see [docs/WINDOWS_SIMULATIONS.md](./WINDOWS_SIMULATIONS.md)) — only the launcher differs.
 
 The current BER defaults use:
 
+- stop condition: `300` decoded bit errors per SNR point (run until reached, with an optional frame cap)
+- max frame cap: unlimited by default
+- scheduling: round-robin in batches of `10` frames per point per sweep (`--batch-frames`), across all CPU cores (`--jobs`)
 - product-code decoding: `12` iterations
-- staircase decoding: `12` iterations for the paper-aligned presets
+- staircase decoding: window `7`, `12` iterations; `terminated` mode at `100` data blocks by default (`--staircase-mode`)
 
 ## 1. Install WSL
 
@@ -63,15 +66,25 @@ That command will:
 
 ## 5. Wait for the results
 
-The runner shows a live status table with:
+The runner shows a live status block per graph, e.g.:
 
-- current graph
-- completed SNR points
-- latest SNR point finished
-- ETA for each graph
-- predicted finish time for each graph
+```text
+Overall: 9/21 SNR points complete  |  Elapsed: 05:43
 
-While the suite is running, it also updates each graph's merged CSV and plot files in place so you can inspect intermediate results before the whole suite finishes.
+staircase_254   [  coarse  ] complete 9/13   sweep #3 (5/8 this sweep)   ETA 02:09 -> 22:15:10
+    working on: 4.40, 4.50, 4.60, 4.70 dB
+staircase_510   [ pending  ] complete 0/8
+```
+
+- **status** — `pending` -> `calibrating` -> `coarse` -> `fine` (waterfall refinement) -> `done`.
+- **complete X/Y** — SNR points that have reached the decoded-error target. Points stopped early by a frame cap or budget instead show as `(N capped)`, so "complete" means only the points that actually hit the target.
+- **sweep #N (done/total this sweep)** — the round-robin sweep counter and progress through the current sweep. Each sweep gives one batch (`--batch-frames`) to every point still short of its target.
+- **working on** — the SNR point(s) being simulated right now.
+- **ETA -> Finish** — estimated time remaining and predicted clock finish for that graph.
+
+Graphs run one at a time; within a graph all CPU cores are used (see the core-saturation note below).
+
+While the suite is running, it also updates each graph's merged CSV and plot files in place so you can inspect intermediate results before the whole suite finishes. The same fields are mirrored in `progress.json`.
 
 It also writes a machine-readable progress file:
 
@@ -114,7 +127,8 @@ Run the suite with explicit settings:
 
 ```bash
 ./scripts/wsl/run_all_ber.sh \
-  --frames 500 \
+  --target-errors 300 \
+  --max-frames-per-point 0 \
   --start-db 0 \
   --end-db 6 \
   --step-db 0.1 \
@@ -133,15 +147,56 @@ Reuse existing binaries if you already built them:
 ./scripts/wsl/run_all_ber.sh --skip-build
 ```
 
+### Scheduling and budgets
+
+The suite sweeps the whole SNR range in rounds, simulating a batch of frames per
+point per round and dropping points once they hit `--target-errors`:
+
+```bash
+./scripts/wsl/run_all_ber.sh \
+  --batch-frames 10 \          # frames per point per sweep (smaller = shorter, more frequent updates)
+  --time-budget-seconds 1800 \ # per-graph wall-clock cap (0 = unlimited)
+  --frame-budget 0             # per-graph total-frame cap (0 = unlimited)
+```
+
+When a budget is hit, remaining points are finalised with whatever data they have, so the
+curve stays complete (just noisier at the tail). Disable waterfall refinement with
+`--no-adaptive-waterfall`.
+
+### Staircase mode (paper replication)
+
+The staircase graphs default to `terminated` mode with `100` data blocks. For a faithful
+match to the paper (the *iBDD (staircase)* curve in Figs 5/6), use `streaming` mode — a
+continuous sliding-window chain at the exact asymptotic rate (`0.811` for the 254
+component, `0.894` for the 510):
+
+```bash
+./scripts/wsl/run_all_ber.sh \
+  --graphs staircase_254,staircase_510 --staircase-mode streaming \
+  --target-errors 300 --batch-frames 50 --time-budget-seconds 3600
+```
+
+- The staircase graphs pin their own sweep/plot ranges (254: 3.6–4.8 dB, 510: 4.5–5.2 dB).
+- In `terminated` mode, raise `--staircase-data-blocks` (e.g. `200`) to push the effective rate
+  closer to the asymptote; `0` keeps the per-graph default.
+- The 510 component is heavy (255×255-bit blocks); reaching BER `1e-6` there needs a generous budget.
+
 ## Notes
 
-- By default the runner uses all available logical CPU cores.
+- By default the runner uses all available logical CPU cores (`--jobs`).
+- **Core saturation:** when fewer SNR points remain than cores (the slow high-SNR tail), each
+  remaining point is split into multiple concurrent sub-batches so all cores stay busy instead
+  of idling. The CPU is maxed throughout a graph, not just during the bulk.
+- Each SNR point runs until the decoder has accumulated `300` decoded bit errors by default;
+  pass `--max-frames-per-point N` for a safety cutoff on very clean points.
 - By default the runner does a two-stage sweep:
   - coarse sweep at your requested `step_db`
   - automatic denser refinement around the steepest waterfall region using `0.02 dB` spacing
 - The ETA values are calibrated up front using a short warm-up pass, then refined as the real run progresses.
 - The staircase graph uses the current native staircase implementation in `staircase/`.
-- The staircase sweep is configured to match the paper's window size and iteration count, but it still uses this repo's current hard-decision staircase decoder. It does not implement iBDD-SR, AD, or genie-aided ideal iBDD from the paper.
+- The staircase sweep matches the paper's window size (`7`) and iteration count (`12`). To also
+  match its code rate, use `--staircase-mode streaming` or raise `--staircase-data-blocks`. It still
+  uses this repo's hard-decision staircase decoder — it does not implement iBDD-SR, AD, or genie-aided ideal iBDD from the paper.
 - The channel model is native C for all three families:
   - BPSK modulation
   - AWGN

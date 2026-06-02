@@ -167,8 +167,8 @@ def run_point_job(cfg: Dict[str, object], args: argparse.Namespace, snr_db: floa
             f"{snr_db:.3f}",
             "--step-db",
             str(args.step_db),
-            "--frames",
-            str(args.frames),
+            "--target-errors",
+            str(args.target_errors),
             "--seed",
             str(seed),
             "--label",
@@ -176,6 +176,8 @@ def run_point_job(cfg: Dict[str, object], args: argparse.Namespace, snr_db: floa
             "--out",
             str(out_csv),
         ]
+        if args.max_frames_per_point > 0:
+            cmd.extend(["--max-frames", str(args.max_frames_per_point)])
     else:
         cmd = [
             str(PRODUCT_RUNNER),
@@ -199,8 +201,8 @@ def run_point_job(cfg: Dict[str, object], args: argparse.Namespace, snr_db: floa
             f"{snr_db:.3f}",
             "--step-db",
             str(args.step_db),
-            "--frames",
-            str(args.frames),
+            "--target-errors",
+            str(args.target_errors),
             "--seed",
             str(seed),
             "--label",
@@ -208,6 +210,8 @@ def run_point_job(cfg: Dict[str, object], args: argparse.Namespace, snr_db: floa
             "--out",
             str(out_csv),
         ]
+        if args.max_frames_per_point > 0:
+            cmd.extend(["--max-frames", str(args.max_frames_per_point)])
 
     proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
     return snr_db, proc.stderr.strip()
@@ -220,7 +224,9 @@ def write_merged_csv(cfg: Dict[str, object], rows: List[Dict[str, float]], args:
         fp.write(f"# title,{cfg['title']}\n")
         fp.write(f"# subtitle,{cfg['subtitle']}\n")
         fp.write("# channel,BPSK modulation + AWGN + hard demodulation\n")
-        fp.write(f"# frames,{args.frames}\n")
+        fp.write("# stop_condition,decoded_bit_errors_target\n")
+        fp.write(f"# target_errors,{args.target_errors}\n")
+        fp.write(f"# max_frames_per_point,{args.max_frames_per_point}\n")
         fp.write(f"# start_db,{args.start_db}\n")
         fp.write(f"# end_db,{args.end_db}\n")
         fp.write(f"# step_db,{args.step_db}\n")
@@ -361,7 +367,8 @@ def write_manifest(out_dir: Path, generated: List[Path], args: argparse.Namespac
         "",
         "Channel: BPSK modulation + AWGN + hard demodulation",
         f"Sweep: {args.start_db:.1f} to {args.end_db:.1f} dB in {args.step_db:.1f} dB steps",
-        f"Frames per point: {args.frames}",
+        f"Target decoded bit errors per point: {args.target_errors}",
+        f"Max frames per point: {args.max_frames_per_point if args.max_frames_per_point > 0 else 'unlimited'}",
         f"Parallel jobs per case: {args.jobs}",
         f"Product iterations: {args.product_max_iters}",
         "",
@@ -388,7 +395,7 @@ def run_case(cfg: Dict[str, object], args: argparse.Namespace, out_dir: Path) ->
 
     print(
         f"Running {cfg['label']} ({cfg['family']}) across {len(points)} SNR points "
-        f"with {args.frames} frames/point using {jobs} parallel jobs"
+        f"until {args.target_errors} decoded bit errors/point using {jobs} parallel jobs"
     )
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         future_map = {}
@@ -433,15 +440,18 @@ def main() -> None:
     parser.add_argument("--start-db", type=float, default=0.0)
     parser.add_argument("--end-db", type=float, default=6.0)
     parser.add_argument("--step-db", type=float, default=0.1)
-    parser.add_argument("--frames", type=int, default=500)
+    parser.add_argument("--target-errors", type=int, default=300)
+    parser.add_argument("--max-frames-per-point", "--frames", dest="max_frames_per_point", type=int, default=0)
     parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--product-max-iters", type=int, default=12)
     parser.add_argument("--plot-only", action="store_true", help="Regenerate plots from existing merged CSVs without rerunning any simulations.")
     args = parser.parse_args()
 
-    if args.frames <= 0:
-        raise SystemExit("frames must be positive")
+    if args.target_errors <= 0:
+        raise SystemExit("target-errors must be positive")
+    if args.max_frames_per_point < 0:
+        raise SystemExit("max-frames-per-point must be non-negative")
     if args.step_db <= 0.0:
         raise SystemExit("step-db must be positive")
     if args.product_max_iters <= 0:

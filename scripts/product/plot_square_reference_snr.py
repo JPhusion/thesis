@@ -55,8 +55,8 @@ def build_snr_points(start_db: float, end_db: float, step_db: float) -> List[flo
     return points
 
 
-def out_dir_default(code: str, frames: int) -> Path:
-    return ROOT / "artifacts" / "product_snr" / f"code_{code}_frames_{frames}"
+def out_dir_default(code: str, target_errors: int) -> Path:
+    return ROOT / "artifacts" / "product_snr" / f"code_{code}_target_errors_{target_errors}"
 
 
 def csv_path_for(cfg: Dict[str, object], out_dir: Path) -> Path:
@@ -80,11 +80,13 @@ def run_point_job(cfg: Dict[str, object], args: argparse.Namespace, snr_db: floa
         "--start-db", f"{snr_db:.3f}",
         "--end-db", f"{snr_db:.3f}",
         "--step-db", str(args.step_db),
-        "--frames", str(args.frames),
+        "--target-errors", str(args.target_errors),
         "--seed", str(int(cfg["seed"]) ^ int(round(snr_db * 1000))),
         "--label", str(cfg["name"]),
         "--out", str(out_csv),
     ]
+    if args.max_frames > 0:
+        cmd.extend(["--max-frames", str(args.max_frames)])
     proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
     return snr_db, proc.stderr.strip()
 
@@ -110,7 +112,9 @@ def write_merged_csv(cfg: Dict[str, object], rows: List[Dict[str, float]], args:
     with out_csv.open("w", newline="") as fp:
         fp.write(f"# label,{cfg['name']}\n")
         fp.write(f"# max_iters,{args.max_iters}\n")
-        fp.write(f"# frames,{args.frames}\n")
+        fp.write("# stop_condition,decoded_bit_errors_target\n")
+        fp.write(f"# target_errors,{args.target_errors}\n")
+        fp.write(f"# max_frames,{args.max_frames}\n")
         fp.write("snr_db,raw_ber,decoded_ber,frame_success,frames\n")
         writer = csv.writer(fp)
         for row in rows:
@@ -210,7 +214,10 @@ def draw_panel(title: str, rows: List[Dict[str, float]], x_min: float, x_max: fl
 
 def write_svg(cfg: Dict[str, object], rows: List[Dict[str, float]], args: argparse.Namespace, out_path: Path) -> None:
     panel = draw_panel(str(cfg["title"]), rows, args.start_db, args.end_db)
-    header = f'Product-Code BER Sweep, {args.start_db:.1f} to {args.end_db:.1f} dB, step {args.step_db:.1f} dB, {args.frames} frames/point'
+    header = (
+        f'Product-Code BER Sweep, {args.start_db:.1f} to {args.end_db:.1f} dB, '
+        f'step {args.step_db:.1f} dB, target {args.target_errors} decoded errors/point'
+    )
     svg = [
         '<svg xmlns="http://www.w3.org/2000/svg" width="660" height="610" viewBox="0 0 660 610">',
         '<rect width="100%" height="100%" fill="#f5f7fb" />',
@@ -229,7 +236,10 @@ def run_code(cfg: Dict[str, object], args: argparse.Namespace, out_dir: Path) ->
     jobs = min(max(1, args.jobs), len(points))
 
     rows: List[Dict[str, float]] = []
-    print(f"Running {cfg['name']} across {len(points)} SNR points with {args.frames} frames/point using {jobs} parallel jobs")
+    print(
+        f"Running {cfg['name']} across {len(points)} SNR points until "
+        f"{args.target_errors} decoded bit errors/point using {jobs} parallel jobs"
+    )
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         future_map = {}
         for snr_db in points:
@@ -261,21 +271,24 @@ def main() -> None:
     parser.add_argument("--start-db", type=float, default=0.0)
     parser.add_argument("--end-db", type=float, default=6.0)
     parser.add_argument("--step-db", type=float, default=0.1)
-    parser.add_argument("--frames", type=int, default=500)
+    parser.add_argument("--target-errors", type=int, default=300)
+    parser.add_argument("--max-frames", "--frames", dest="max_frames", type=int, default=0)
     parser.add_argument("--max-iters", type=int, default=4)
     parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS)
     parser.add_argument("--out-dir", type=Path, default=None)
     args = parser.parse_args()
 
-    if args.step_db <= 0 or args.frames <= 0 or args.jobs <= 0:
-        raise SystemExit("step-db, frames, and jobs must be positive")
+    if args.step_db <= 0 or args.target_errors <= 0 or args.jobs <= 0:
+        raise SystemExit("step-db, target-errors, and jobs must be positive")
+    if args.max_frames < 0:
+        raise SystemExit("max-frames must be non-negative")
 
     build_runner()
 
     codes = [args.code] if args.code != "all" else ["255", "511"]
     for code in codes:
         cfg = CONFIGS[code]
-        target_out_dir = args.out_dir if args.out_dir is not None and len(codes) == 1 else out_dir_default(code, args.frames)
+        target_out_dir = args.out_dir if args.out_dir is not None and len(codes) == 1 else out_dir_default(code, args.target_errors)
         run_code(cfg, args, target_out_dir)
 
 

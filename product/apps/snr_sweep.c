@@ -23,7 +23,8 @@ typedef struct {
     double start_db;
     double end_db;
     double step_db;
-    int frames;
+    int target_errors;
+    int max_frames;
     uint64_t seed;
     const char *out_path;
     const char *label;
@@ -138,7 +139,7 @@ static int parse_u64_arg(const char *value, uint64_t *out) {
 static void usage(const char *argv0) {
     fprintf(stderr,
             "Usage: %s --row-m M --row-t T --row-prim POLY --col-m M --col-t T --col-prim POLY \\\n"
-            "          [--max-iters N] [--start-db X] [--end-db Y] [--step-db D] [--frames N] \\\n"
+            "          [--max-iters N] [--start-db X] [--end-db Y] [--step-db D] [--target-errors N] [--max-frames N] \\\n"
             "          [--seed S] [--label NAME] --out FILE.csv\n",
             argv0);
 }
@@ -155,7 +156,8 @@ static int parse_args(int argc, char **argv, sweep_cfg_t *cfg) {
         .start_db = 0.0,
         .end_db = 6.0,
         .step_db = 0.1,
-        .frames = 500,
+        .target_errors = 300,
+        .max_frames = 0,
         .seed = 0xC0DEC0DE12345678ULL,
         .out_path = NULL,
         .label = "product-square"
@@ -183,8 +185,10 @@ static int parse_args(int argc, char **argv, sweep_cfg_t *cfg) {
             if (parse_double_arg(argv[++i], &cfg->end_db) != 0) return -1;
         } else if (strcmp(arg, "--step-db") == 0 && i + 1 < argc) {
             if (parse_double_arg(argv[++i], &cfg->step_db) != 0) return -1;
-        } else if (strcmp(arg, "--frames") == 0 && i + 1 < argc) {
-            if (parse_int_arg(argv[++i], &cfg->frames) != 0) return -1;
+        } else if (strcmp(arg, "--target-errors") == 0 && i + 1 < argc) {
+            if (parse_int_arg(argv[++i], &cfg->target_errors) != 0) return -1;
+        } else if ((strcmp(arg, "--max-frames") == 0 || strcmp(arg, "--frames") == 0) && i + 1 < argc) {
+            if (parse_int_arg(argv[++i], &cfg->max_frames) != 0) return -1;
         } else if (strcmp(arg, "--seed") == 0 && i + 1 < argc) {
             if (parse_u64_arg(argv[++i], &cfg->seed) != 0) return -1;
         } else if (strcmp(arg, "--out") == 0 && i + 1 < argc) {
@@ -200,7 +204,7 @@ static int parse_args(int argc, char **argv, sweep_cfg_t *cfg) {
         }
     }
 
-    if (!cfg->out_path || cfg->frames <= 0 || cfg->step_db <= 0.0 || cfg->max_iters <= 0) {
+    if (!cfg->out_path || cfg->target_errors <= 0 || cfg->max_frames < 0 || cfg->step_db <= 0.0 || cfg->max_iters <= 0) {
         return -1;
     }
     return 0;
@@ -227,8 +231,9 @@ static int run_sweep(const sweep_cfg_t *cfg) {
     fprintf(fp, "# info_matrix,%d,%d\n", pc.info_rows, pc.info_cols);
     fprintf(fp, "# code_matrix,%d,%d\n", pc.code_rows, pc.code_cols);
     fprintf(fp, "# max_iters,%d\n", cfg->max_iters);
-    fprintf(fp, "# frames,%d\n", cfg->frames);
-    fprintf(fp, "snr_db,raw_ber,decoded_ber,frame_success,frames\n");
+    fprintf(fp, "# target_errors,%d\n", cfg->target_errors);
+    fprintf(fp, "# max_frames,%d\n", cfg->max_frames);
+    fprintf(fp, "snr_db,raw_ber,decoded_ber,frame_success,frames,raw_errors,decoded_errors,payload_bits,success_frames\n");
 
     uint8_t *msg = (uint8_t *)calloc((size_t)pc.msg_bits, 1);
     uint8_t *cw = (uint8_t *)calloc((size_t)pc.cw_bits, 1);
@@ -256,8 +261,9 @@ static int run_sweep(const sweep_cfg_t *cfg) {
         unsigned long long raw_errs = 0ull;
         unsigned long long decoded_errs = 0ull;
         unsigned long long success_frames = 0ull;
+        unsigned long long frames_run = 0ull;
 
-        for (int frame = 0; frame < cfg->frames; frame++) {
+        while (decoded_errs < (unsigned long long)cfg->target_errors) {
             random_bits(msg, pc.msg_bits, &rng);
             if (product_encode_systematic(&pc, msg, cw) != 0) {
                 fprintf(stderr, "product_encode_systematic failed at %.2f dB\n", snr_db);
@@ -279,20 +285,25 @@ static int run_sweep(const sweep_cfg_t *cfg) {
             (void)product_decode_iterative(&pc, rx, cfg->max_iters, &stats);
             const int frame_errs = count_bit_errors(rx, cw, pc.cw_bits);
             decoded_errs += (unsigned long long)frame_errs;
+            frames_run++;
             if (frame_errs == 0) {
                 success_frames++;
             }
+            if (cfg->max_frames > 0 && frames_run >= (unsigned long long)cfg->max_frames) {
+                break;
+            }
         }
 
-        const double raw_ber = (double)raw_errs / ((double)pc.cw_bits * (double)cfg->frames);
-        const double decoded_ber = (double)decoded_errs / ((double)pc.cw_bits * (double)cfg->frames);
-        const double frame_success = (double)success_frames / (double)cfg->frames;
-        fprintf(fp, "%.3f,%.12g,%.12g,%.12g,%d\n", snr_db, raw_ber, decoded_ber, frame_success, cfg->frames);
+        const double raw_ber = (double)raw_errs / ((double)pc.cw_bits * (double)frames_run);
+        const double decoded_ber = (double)decoded_errs / ((double)pc.cw_bits * (double)frames_run);
+        const double frame_success = (double)success_frames / (double)frames_run;
+        const unsigned long long payload_bits = (unsigned long long)pc.cw_bits * frames_run;
+        fprintf(fp, "%.3f,%.12g,%.12g,%.12g,%llu,%llu,%llu,%llu,%llu\n", snr_db, raw_ber, decoded_ber, frame_success, frames_run, raw_errs, decoded_errs, payload_bits, success_frames);
         fflush(fp);
 
         const double elapsed = (double)(clock() - t0) / (double)CLOCKS_PER_SEC;
         fprintf(stderr,
-                "[%s] %2d/%d  Eb/N0=%.1f dB  raw=%.6g  decoded=%.6g  success=%.2f%%  elapsed=%.1fs\n",
+                "[%s] %2d/%d  Eb/N0=%.1f dB  raw=%.6g  decoded=%.6g  success=%.2f%%  frames=%llu  elapsed=%.1fs\n",
                 cfg->label,
                 point + 1,
                 point_count,
@@ -300,6 +311,7 @@ static int run_sweep(const sweep_cfg_t *cfg) {
                 raw_ber,
                 decoded_ber,
                 frame_success * 100.0,
+                frames_run,
                 elapsed);
     }
 

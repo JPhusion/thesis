@@ -1,13 +1,23 @@
 param(
     [switch]$Bootstrap,
     [switch]$SkipBuild,
-    [int]$Frames = 500,
+    [Alias("Frames")]
+    [int]$MaxFrames = 0,
+    [int]$TargetErrors = 300,
     [int]$Jobs = [Environment]::ProcessorCount,
     [double]$StartDb = 0.0,
     [double]$EndDb = 6.0,
     [double]$StepDb = 0.1,
-    [int]$CalibrationFrames = 4,
+    [Alias("CalibrationFrames")]
+    [int]$CalibrationErrors = 12,
     [string]$Graphs = "bch_255,product_255,staircase_254,bch_511,product_511,staircase_510",
+    [ValidateSet("terminated", "streaming")]
+    [string]$StaircaseMode = "terminated",
+    [int]$StaircaseDataBlocks = 0,
+    [int]$BatchFrames = 10,
+    [double]$TimeBudgetSeconds = 0.0,
+    [int]$FrameBudget = 0,
+    [switch]$NoAdaptiveWaterfall,
     [string]$OutDir = ""
 )
 
@@ -37,19 +47,37 @@ if ($zigCandidates.Count -gt 0) {
     $env:ZIG_EXE = $zigCandidates[-1].FullName
 }
 
+# Format doubles with an invariant (period) decimal separator so non-US locales
+# don't emit "4,5" and break argument parsing on the Python side.
+$inv = [System.Globalization.CultureInfo]::InvariantCulture
+$startStr = $StartDb.ToString($inv)
+$endStr = $EndDb.ToString($inv)
+$stepStr = $StepDb.ToString($inv)
+$timeBudgetStr = $TimeBudgetSeconds.ToString($inv)
+
 $argsList = @(
     (Join-Path $Root "scripts\wsl\run_all_ber.py"),
-    "--frames", $Frames,
+    "--target-errors", $TargetErrors,
+    "--max-frames-per-point", $MaxFrames,
     "--jobs", $Jobs,
-    "--start-db", $StartDb,
-    "--end-db", $EndDb,
-    "--step-db", $StepDb,
+    "--start-db", $startStr,
+    "--end-db", $endStr,
+    "--step-db", $stepStr,
     "--graphs", $Graphs,
-    "--calibration-frames", $CalibrationFrames
+    "--calibration-errors", $CalibrationErrors,
+    "--staircase-mode", $StaircaseMode,
+    "--staircase-data-blocks", $StaircaseDataBlocks,
+    "--batch-frames", $BatchFrames,
+    "--time-budget-seconds", $timeBudgetStr,
+    "--frame-budget", $FrameBudget
 )
 
 if ($SkipBuild) {
     $argsList += "--skip-build"
+}
+
+if ($NoAdaptiveWaterfall) {
+    $argsList += "--no-adaptive-waterfall"
 }
 
 if ($OutDir -ne "") {
