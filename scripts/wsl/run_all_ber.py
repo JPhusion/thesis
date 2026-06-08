@@ -1012,10 +1012,19 @@ def ensure_out_dir(path: Optional[Path]) -> Path:
         (DEFAULT_OUT_ROOT / "latest.txt").write_text(str(target) + "\n", encoding="utf-8")
 
         if latest.exists() or latest.is_symlink():
-            if latest.is_dir() and not latest.is_symlink():
-                shutil.rmtree(latest)
-            else:
+            # `latest` is a junction (Windows, created via mklink /J) or a symlink
+            # (POSIX) pointing at the previous run. Remove the pointer itself without
+            # recursing into the run it targets. shutil.rmtree refuses to run on a
+            # link/junction, so try unlink (POSIX symlink / file), then os.rmdir
+            # (Windows junction / dir symlink / empty dir), then rmtree as a last
+            # resort for a real non-empty directory.
+            try:
                 latest.unlink()
+            except (OSError, PermissionError):
+                try:
+                    os.rmdir(latest)
+                except OSError:
+                    shutil.rmtree(latest, ignore_errors=True)
 
         if IS_WINDOWS:
             try:
