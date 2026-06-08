@@ -16,6 +16,11 @@ BCH_OBJ = $(patsubst ../bch/src/%.c,build/bch_%.o,$(BCH_SRC))
 STAIR_OBJ = $(patsubst src/%.c,build/staircase_%.o,$(STAIR_SRC))
 OBJ = $(BCH_OBJ) $(STAIR_OBJ)
 
+# Rebuild all objects when any local or shared BCH header changes, so an
+# incremental build never links mismatched struct layouts.
+HEADERS = $(wildcard include/*.h) $(wildcard ../bch/include/*.h)
+$(OBJ): $(HEADERS)
+
 all: demo test_staircase_encode test_staircase_decode snr_sweep
 
 demo: apps/demo.c $(OBJ)

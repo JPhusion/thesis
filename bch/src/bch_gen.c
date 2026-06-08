@@ -16,8 +16,15 @@ int bch_init(bch_ctx_t *bch, int m, uint32_t prim_poly, int t) {
     bch->gf.m = m;
     bch->gf.prim_poly = prim_poly;
 
+    // Build the GF log/antilog tables up front so every gf_mul below (and in the
+    // decoder) is an O(1) lookup instead of a bit-serial multiply.
+    if (gf_build_tables(&bch->gf) != 0) {
+        return -1;
+    }
+
     // Sanity check: if 2t >= n, we can't have a valid code.
     if (2 * t >= bch->n) {
+        gf_free_tables(&bch->gf);
         return -1;
     }
 
@@ -30,6 +37,7 @@ int bch_init(bch_ctx_t *bch, int m, uint32_t prim_poly, int t) {
         free(in_union);
         free(poly);
         free(tmp);
+        gf_free_tables(&bch->gf);
         return -1;
     }
 
@@ -101,4 +109,5 @@ int bch_init(bch_ctx_t *bch, int m, uint32_t prim_poly, int t) {
 void bch_free(bch_ctx_t *bch) {
     free(bch->g);
     bch->g = NULL;
+    gf_free_tables(&bch->gf);
 }

@@ -12,6 +12,11 @@ SRC = src/gf.c \
 
 OBJ = $(SRC:.c=.o)
 
+# Rebuild every object when any header changes (structs/inlines live there), so
+# an incremental build never links mismatched struct layouts.
+HEADERS = $(wildcard include/*.h)
+$(OBJ): $(HEADERS)
+
 all: demo encode test_gf test_encode test_decode snr_sweep
 
 demo: apps/demo.c $(OBJ)

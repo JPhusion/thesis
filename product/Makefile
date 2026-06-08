@@ -17,6 +17,11 @@ BCH_OBJ = $(patsubst ../bch/src/%.c,build/bch_%.o,$(BCH_SRC))
 PRODUCT_OBJ = $(patsubst src/%.c,build/product_%.o,$(PRODUCT_SRC))
 OBJ = $(BCH_OBJ) $(PRODUCT_OBJ)
 
+# Rebuild all objects when any local or shared BCH header changes, so an
+# incremental build never links mismatched struct layouts.
+HEADERS = $(wildcard include/*.h) $(wildcard ../bch/include/*.h)
+$(OBJ): $(HEADERS)
+
 all: demo test_product_encode test_product_decode
 
 demo: apps/demo.c $(OBJ)
